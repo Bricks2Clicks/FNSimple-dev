@@ -1,0 +1,154 @@
+{%- comment %}<locksmith:cbff>{% endcomment -%}
+  {%- assign locksmith_4e1d_product__has_only_default_variant = false %}{% assign _variants_count = 0 %}{% assign locksmith_4e1d_product__first_available_variant = nil %}{% assign locksmith_4e1d_product__selected_variant = nil %}{% assign locksmith_4e1d_product__selected_or_first_available_variant = nil %}{% for variant in product.variants %}{% capture var %}{% render 'locksmith-variables', scope: 'subject', subject: variant, subject_parent: product, variable: 'transparent' %}{% endcapture %}{% if var == "true" %}{% else %}{% continue %}{% endif %}{% assign _variants_count = _variants_count | plus: 1 %}{% if locksmith_4e1d_product__first_available_variant == nil and variant.available %}{% assign locksmith_4e1d_product__first_available_variant = variant %}{% endif %}{% if locksmith_4e1d_product__selected_variant == nil and variant.selected %}{% assign locksmith_4e1d_product__selected_variant = variant %}{% endif %}{% if variant == product.selected_or_first_available_variant %}{% assign locksmith_4e1d_product__selected_or_first_available_variant = product.selected_or_first_available_variant %}{% endif %}{% endfor %}{% if _variants_count == 1 %}{% assign locksmith_4e1d_product__has_only_default_variant = true %}{% endif %}{% if locksmith_4e1d_product__selected_or_first_available_variant == nil %}{% assign locksmith_4e1d_product__selected_or_first_available_variant = locksmith_4e1d_product__first_available_variant %}{% endif -%}
+{%- comment %}</locksmith:cbff>{% endcomment -%}
+
+{% comment %}
+  Renders product variant-picker
+
+  Accepts:
+  - product: {Object} product object.
+  - block: {Object} passing the block information.
+  - product_form_id: {String} Id of the product form to which the variant picker is associated.
+  Usage:
+  {% render 'product-variant-picker', product: product, block: block, product_form_id: product_form_id %}
+{% endcomment %}
+{%- unless locksmith_4e1d_product__has_only_default_variant -%}
+  <variant-selects data-primary
+    id="variant-selects-{{ section.id }}"
+    data-section="{{ section.id }}"
+    {{ block.shopify_attributes }}
+  >
+    {%- for option in product.options_with_values -%}
+      {%- liquid
+        assign picker_type = block.settings.picker_type
+        
+        if block.settings.swatch_type != 'none'
+          assign native_swatch_eligible = false
+          assign custom_swatch_eligible = false
+          if block.settings.swatch_source == 'native'
+            assign native_swatch_count = option.values | map: 'swatch' | compact | size
+            if native_swatch_count > 0
+              assign native_swatch_eligible = true
+            endif
+          else
+            assign custom_swatch_trigger = 'products.product.color_swatch_trigger' | t | downcase
+            assign downcased_option = option.name | downcase
+            if custom_swatch_trigger contains downcased_option
+              assign custom_swatch_eligible = true
+            endif
+          endif
+
+          if native_swatch_eligible == true or custom_swatch_eligible == true
+            if block.settings.picker_type == 'dropdown'
+              assign picker_type = 'swatch_dropdown'
+            else
+              assign picker_type = 'swatch'
+            endif
+          endif
+        endif
+
+        assign is_size = false
+        if block.settings.size_chart != blank
+          assign size_trigger = 'products.product.size_chart_trigger' | t | downcase
+          assign downcased_option = option.name | downcase
+          if size_trigger contains downcased_option
+            assign is_size = true
+          endif
+        endif
+      -%}
+
+      {%- capture sizechart_cta -%}
+        {%- if is_size -%}
+          <div class="form__popup" id="size-{{ section.id }}">
+            <modal-opener class="no-js-hidden" data-modal="#PopupModal-{{ block.id }}" {{ block.shopify_attributes }}>
+              <button id="ProductPopup-{{ block.id }}" class="link link-with-icon" type="button" aria-haspopup="dialog">
+                {% render 'icon', icon: 'ruler' %}
+                <span class="label">{{ 'products.product.size_chart' | t | default: block.settings.size_chart.title }}</span>
+              </button>
+            </modal-opener>
+            <a href="{{ block.settings.size_chart.url }}" class="link link-with-icon no-js">
+              {% render 'icon', icon: 'ruler' %}
+              <span class="label">{{ 'products.product.size_chart' | t | default: block.settings.size_chart.title }}</span>
+            </a>
+          </div>
+        {%- endif -%}
+      {%- endcapture -%}
+
+      {%- if picker_type == 'swatch' -%}
+        <fieldset class="js product-form__input product-form__input--swatch">
+          {%- if block.settings.show_variant_labels -%}
+            <legend class="form__label">
+              {{ option.name }}:
+              <span data-selected-value>
+                {{- option.selected_value -}}
+              </span>
+            </legend>
+          {%- endif -%}
+          {% render 'product-variant-options',
+            product: product,
+            option: option,
+            block: block,
+            picker_type: picker_type
+          %}
+          {{- sizechart_cta -}}
+        </fieldset>
+      {%- elsif picker_type == 'button' -%}
+        <fieldset class="js product-form__input product-form__input--pill">
+          {%- if block.settings.show_variant_labels -%}
+          <legend class="form__label">{{ option.name }}</legend>
+          {%- endif -%}
+          {% render 'product-variant-options',
+            product: product,
+            option: option,
+            block: block,
+            picker_type: picker_type
+          %}
+          {{- sizechart_cta -}}
+        </fieldset>
+      {%- else -%}
+        <div class="product-form__input product-form__input--dropdown">
+          {%- if block.settings.show_variant_labels -%}
+            <label class="form__label" for="Option-{{ section.id }}-{{ forloop.index0 }}">
+              {{ option.name }}
+            </label>
+          {%- endif -%}
+          <div class="select">
+            {%- if picker_type == 'swatch_dropdown' -%}
+              <span
+                data-selected-value
+                class="dropdown-swatch"
+              >
+                {% if block.settings.swatch_source == 'native' %}
+                  {% render 'swatch', swatch: option.selected_value.swatch, shape: block.settings.swatch_type %}
+                {% else %}
+                  {% render 'swatch-custom', product: product, option: option, source: block.settings.swatch_source, shape: block.settings.swatch_type %}
+                {% endif %}
+              </span>
+            {%- endif -%}
+            <select
+              id="Option-{{ section.id }}-{{ forloop.index0 }}"
+              class="select__select"
+              name="options[{{ option.name | escape }}]"
+              form="{{ product_form_id }}"
+            >
+              {% render 'product-variant-options',
+                product: product,
+                option: option,
+                block: block,
+                picker_type: picker_type
+              %}
+            </select>
+            <span class="svg-wrapper">
+              {{- 'icon-caret.svg' | inline_asset_content -}}
+            </span>
+          </div>
+          {{- sizechart_cta -}}
+        </div>
+      {%- endif -%}
+    {%- endfor -%}
+
+    <script type="application/json" data-selected-variant>
+      {{ locksmith_4e1d_product__selected_or_first_available_variant | json }}
+    </script>
+  </variant-selects>
+{%- endunless -%}

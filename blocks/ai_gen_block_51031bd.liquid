@@ -1,0 +1,266 @@
+{% doc %}
+  @prompt
+    Create a collection banner slideshow that cycles through multiple images with smooth transitions. It should support customizable slides (each with an image, optional heading, and optional subtext), auto-play with a configurable interval, and navigation arrows or dots. The design should match a premium, professional storefront aesthetic.
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-collection-slideshow-{{ ai_gen_id }} {
+    display: block;
+    position: relative;
+    width: {{ block.settings.desktop_width_percent }}%;
+    max-width: 100%;
+    overflow: hidden;
+    background: {{ block.settings.background_color }};
+    color: {{ block.settings.text_color }};
+  }
+
+  .ai-collection-slideshow__viewport-{{ ai_gen_id }} {
+    position: relative;
+    aspect-ratio: {{ block.settings.aspect_ratio }};
+    min-height: 320px;
+  }
+
+  .ai-collection-slideshow__slide-{{ ai_gen_id }} {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 700ms ease, visibility 700ms ease;
+  }
+
+  .ai-collection-slideshow__slide-{{ ai_gen_id }}.is-active {
+    opacity: 1;
+    visibility: visible;
+    z-index: 1;
+  }
+
+  .ai-collection-slideshow__image-{{ ai_gen_id }},
+  .ai-collection-slideshow__placeholder-{{ ai_gen_id }} {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+
+  .ai-collection-slideshow__placeholder-{{ ai_gen_id }} {
+    position: relative;
+    background: {{ block.settings.placeholder_color }};
+  }
+
+  .ai-collection-slideshow__placeholder-{{ ai_gen_id }} svg {
+    width: 100%;
+    height: 100%;
+    opacity: 0.45;
+  }
+
+  .ai-collection-slideshow__empty-{{ ai_gen_id }} {
+    position: absolute;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    color: {{ block.settings.text_color }};
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .ai-collection-slideshow__overlay-{{ ai_gen_id }} {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: {{ block.settings.content_position }};
+    justify-content: {{ block.settings.text_alignment }};
+    padding: clamp(24px, 6vw, 72px);
+    background: linear-gradient(90deg, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.08) 72%);
+    color: #ffffff;
+  }
+
+  .ai-collection-slideshow__content-{{ ai_gen_id }} {
+    width: min(540px, 100%);
+    text-align: {{ block.settings.text_alignment }};
+  }
+
+  .ai-collection-slideshow__heading-{{ ai_gen_id }} {
+    margin: 0 0 12px;
+    color: #ffffff;
+    font-size: clamp(28px, 4vw, 54px);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+  }
+
+  .ai-collection-slideshow__subtext-{{ ai_gen_id }} {
+    margin: 0;
+    color: #ffffff;
+    font-size: clamp(15px, 1.6vw, 19px);
+    line-height: 1.5;
+  }
+
+  .ai-collection-slideshow__arrow-{{ ai_gen_id }} {
+    position: absolute;
+    top: 50%;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.25);
+    color: #ffffff;
+    cursor: pointer;
+    transform: translateY(-50%);
+    transition: background 200ms ease;
+  }
+
+  .ai-collection-slideshow__arrow-{{ ai_gen_id }}:hover,
+  .ai-collection-slideshow__arrow-{{ ai_gen_id }}:focus-visible {
+    background: rgba(0, 0, 0, 0.62);
+  }
+
+  .ai-collection-slideshow__arrow-{{ ai_gen_id }}--previous { left: 20px; }
+  .ai-collection-slideshow__arrow-{{ ai_gen_id }}--next { right: 20px; }
+
+  .ai-collection-slideshow__controls-{{ ai_gen_id }} {
+    position: absolute;
+    z-index: 3;
+    right: 24px;
+    bottom: 20px;
+    left: 24px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .ai-collection-slideshow__dot-{{ ai_gen_id }} {
+    width: 9px;
+    height: 9px;
+    padding: 0;
+    border: 1px solid #ffffff;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .ai-collection-slideshow__dot-{{ ai_gen_id }}.is-active { background: #ffffff; }
+
+  @media screen and (max-width: 749px) {
+    .ai-collection-slideshow-{{ ai_gen_id }} { width: 100%; }
+    .ai-collection-slideshow__viewport-{{ ai_gen_id }} { min-height: 420px; }
+    .ai-collection-slideshow__overlay-{{ ai_gen_id }} { padding: 28px 24px 60px; }
+    .ai-collection-slideshow__arrow-{{ ai_gen_id }} { width: 38px; height: 38px; }
+    .ai-collection-slideshow__arrow-{{ ai_gen_id }}--previous { left: 12px; }
+    .ai-collection-slideshow__arrow-{{ ai_gen_id }}--next { right: 12px; }
+  }
+{% endstyle %}
+
+<collection-slideshow-{{ ai_gen_id }} class="ai-collection-slideshow-{{ ai_gen_id }}" data-interval="{{ block.settings.autoplay_interval | times: 1000 }}" data-autoplay="{{ block.settings.autoplay }}" {{ block.shopify_attributes }}>
+  <div class="ai-collection-slideshow__viewport-{{ ai_gen_id }}" aria-live="polite">
+    {% for i in (1..4) %}
+      {% liquid
+        assign image_key = 'slide_' | append: i | append: '_image'
+        assign heading_key = 'slide_' | append: i | append: '_heading'
+        assign subtext_key = 'slide_' | append: i | append: '_subtext'
+        assign slide_image = block.settings[image_key]
+        assign slide_heading = block.settings[heading_key]
+        assign slide_subtext = block.settings[subtext_key]
+      %}
+      <div class="ai-collection-slideshow__slide-{{ ai_gen_id }}{% if forloop.first %} is-active{% endif %}" data-slide-index="{{ forloop.index0 }}"{% unless forloop.first %} aria-hidden="true"{% endunless %}>
+        {% if slide_image %}
+          <img class="ai-collection-slideshow__image-{{ ai_gen_id }}" src="{{ slide_image | image_url: width: 2400 }}" alt="{{ slide_image.alt | escape }}" loading="{% if forloop.first %}eager{% else %}lazy{% endif %}" width="{{ slide_image.width }}" height="{{ slide_image.height }}">
+        {% else %}
+          <div class="ai-collection-slideshow__placeholder-{{ ai_gen_id }}">
+            {{ 'image' | placeholder_svg_tag }}
+            <span class="ai-collection-slideshow__empty-{{ ai_gen_id }}">Add an image for slide {{ i }}</span>
+          </div>
+        {% endif %}
+        {% if slide_heading != blank or slide_subtext != blank %}
+          <div class="ai-collection-slideshow__overlay-{{ ai_gen_id }}">
+            <div class="ai-collection-slideshow__content-{{ ai_gen_id }}">
+              {% if slide_heading != blank %}<h2 class="ai-collection-slideshow__heading-{{ ai_gen_id }}">{{ slide_heading | escape }}</h2>{% endif %}
+              {% if slide_subtext != blank %}<p class="ai-collection-slideshow__subtext-{{ ai_gen_id }}">{{ slide_subtext | escape | newline_to_br }}</p>{% endif %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    {% if block.settings.show_arrows %}
+      <button class="ai-collection-slideshow__arrow-{{ ai_gen_id }} ai-collection-slideshow__arrow-{{ ai_gen_id }}--previous" type="button" aria-label="Previous slide">&#8592;</button>
+      <button class="ai-collection-slideshow__arrow-{{ ai_gen_id }} ai-collection-slideshow__arrow-{{ ai_gen_id }}--next" type="button" aria-label="Next slide">&#8594;</button>
+    {% endif %}
+    {% if block.settings.show_dots %}
+      <div class="ai-collection-slideshow__controls-{{ ai_gen_id }}" role="tablist" aria-label="Slideshow navigation">
+        {% for i in (1..4) %}<button class="ai-collection-slideshow__dot-{{ ai_gen_id }}{% if forloop.first %} is-active{% endif %}" type="button" data-slide-to="{{ forloop.index0 }}" role="tab" aria-label="Go to slide {{ i }}"{% unless forloop.first %} aria-selected="false"{% else %} aria-selected="true"{% endunless %}></button>{% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</collection-slideshow-{{ ai_gen_id }}>
+
+<script>
+  (function() {
+    class CollectionSlideshow{{ ai_gen_id }} extends HTMLElement {
+      connectedCallback() {
+        this.slides = Array.from(this.querySelectorAll('.ai-collection-slideshow__slide-{{ ai_gen_id }}'));
+        this.dots = Array.from(this.querySelectorAll('.ai-collection-slideshow__dot-{{ ai_gen_id }}'));
+        this.current = 0;
+        this.timer = null;
+        this.querySelector('.ai-collection-slideshow__arrow-{{ ai_gen_id }}--previous')?.addEventListener('click', () => this.goTo(this.current - 1));
+        this.querySelector('.ai-collection-slideshow__arrow-{{ ai_gen_id }}--next')?.addEventListener('click', () => this.goTo(this.current + 1));
+        this.dots.forEach((dot) => dot.addEventListener('click', () => this.goTo(Number(dot.dataset.slideTo))));
+        if (this.dataset.autoplay === 'true' && this.slides.length > 1) this.start();
+        this.addEventListener('mouseenter', () => this.stop());
+        this.addEventListener('mouseleave', () => { if (this.dataset.autoplay === 'true') this.start(); });
+      }
+      goTo(index) {
+        this.current = (index + this.slides.length) % this.slides.length;
+        this.slides.forEach((slide, i) => { slide.classList.toggle('is-active', i === this.current); slide.setAttribute('aria-hidden', i === this.current ? 'false' : 'true'); });
+        this.dots.forEach((dot, i) => { dot.classList.toggle('is-active', i === this.current); dot.setAttribute('aria-selected', i === this.current ? 'true' : 'false'); });
+      }
+      start() { this.stop(); this.timer = setInterval(() => this.goTo(this.current + 1), Number(this.dataset.interval)); }
+      stop() { if (this.timer) { clearInterval(this.timer); this.timer = null; } }
+    }
+    customElements.define('collection-slideshow-{{ ai_gen_id }}', CollectionSlideshow{{ ai_gen_id }});
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Collection slideshow",
+  "settings": [
+    { "type": "header", "content": "Slideshow" },
+    { "type": "range", "id": "desktop_width_percent", "label": "Desktop width", "min": 50, "max": 100, "step": 5, "unit": "%", "default": 100 },
+    { "type": "select", "id": "aspect_ratio", "label": "Aspect ratio", "options": [{"value":"2 / 1","label":"Wide"},{"value":"16 / 9","label":"Landscape"},{"value":"4 / 3","label":"Classic"}], "default": "16 / 9" },
+    { "type": "checkbox", "id": "autoplay", "label": "Auto-play", "default": true },
+    { "type": "range", "id": "autoplay_interval", "label": "Change every", "min": 3, "max": 12, "step": 1, "unit": "s", "default": 6 },
+    { "type": "checkbox", "id": "show_arrows", "label": "Show arrows", "default": true },
+    { "type": "checkbox", "id": "show_dots", "label": "Show dots", "default": true },
+    { "type": "select", "id": "content_position", "label": "Content position", "options": [{"value":"flex-start","label":"Top"},{"value":"center","label":"Middle"},{"value":"flex-end","label":"Bottom"}], "default": "center" },
+    { "type": "select", "id": "text_alignment", "label": "Text alignment", "options": [{"value":"left","label":"Left"},{"value":"center","label":"Center"}], "default": "left" },
+    { "type": "header", "content": "Slide 1" },
+    { "type": "image_picker", "id": "slide_1_image", "label": "Image" },
+    { "type": "text", "id": "slide_1_heading", "label": "Heading", "default": "Built for the call" },
+    { "type": "textarea", "id": "slide_1_subtext", "label": "Subtext", "default": "Professional uniform solutions for teams who serve." },
+    { "type": "header", "content": "Slide 2" },
+    { "type": "image_picker", "id": "slide_2_image", "label": "Image" },
+    { "type": "text", "id": "slide_2_heading", "label": "Heading", "default": "Ready when you are" },
+    { "type": "textarea", "id": "slide_2_subtext", "label": "Subtext", "default": "Dependable gear selected for comfort, performance, and readiness." },
+    { "type": "header", "content": "Slide 3" },
+    { "type": "image_picker", "id": "slide_3_image", "label": "Image" },
+    { "type": "text", "id": "slide_3_heading", "label": "Heading", "default": "Equip your department" },
+    { "type": "textarea", "id": "slide_3_subtext", "label": "Subtext", "default": "Simplify ordering with solutions built around your department." },
+    { "type": "header", "content": "Slide 4" },
+    { "type": "image_picker", "id": "slide_4_image", "label": "Image" },
+    { "type": "text", "id": "slide_4_heading", "label": "Heading", "default": "Made to serve" },
+    { "type": "textarea", "id": "slide_4_subtext", "label": "Subtext", "default": "Premium essentials for the people who keep communities moving." },
+    { "type": "header", "content": "Colors" },
+    { "type": "color", "id": "background_color", "label": "Background", "default": "#1a1b18" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#ffffff" },
+    { "type": "color", "id": "placeholder_color", "label": "Placeholder", "default": "#f3f3f3" }
+  ],
+  "presets": [{ "name": "Collection slideshow" }],
+  "tag": null,
+  "class": "collection-slideshow-block"
+}
+{% endschema %}

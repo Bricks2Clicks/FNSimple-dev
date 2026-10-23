@@ -1,0 +1,35 @@
+{%- comment -%}
+  Cart confirmation of shipment preference. Render once in the cart footer
+  (and mini-cart footer if that file has a Liquid loop), e.g.:
+    {% render 'split-ship-status' %}
+  JS also injects this into the drawer if the render is missing.
+{%- endcomment -%}
+{%- assign fee_variant_id = 67928826413210 -%}
+{%- assign fee_product_id = 15457319256218 -%}
+{%- assign has_week = false -%}
+{%- assign has_nonstock = false -%}
+{%- for item in cart.items -%}
+  {%- if item.variant.id == fee_variant_id or item.product.id == fee_product_id -%}
+    {%- continue -%}
+  {%- endif -%}
+  {%- assign vendor = item.vendor | strip -%}
+  {%- if vendor == 'One Week Item' -%}{%- assign has_week = true -%}{%- endif -%}
+  {%- if vendor == 'Non Stock Item' -%}{%- assign has_nonstock = true -%}{%- endif -%}
+{%- endfor -%}
+{%- assign pref = cart.attributes['Shipment preference'] -%}
+{%- if has_week and has_nonstock -%}
+  {%- if pref == 'Split - $5' or pref == 'Delay until complete' -%}
+    <div class="fn-split-ship-status" data-fn-split-ship-status>
+      {%- if pref == 'Split - $5' -%}
+        <p class="fn-split-ship-status__title" data-fn-split-ship-status-title>Shipment: Split — $5 charge</p>
+        <p class="fn-split-ship-status__text" data-fn-split-ship-status-text>Ready items ship now. Other items ship when they are available.</p>
+      {%- else -%}
+        <p class="fn-split-ship-status__title" data-fn-split-ship-status-title>Shipment: Delay until complete</p>
+        <p class="fn-split-ship-status__text" data-fn-split-ship-status-text>No extra charge. We hold everything until all items are ready, then send one package.</p>
+      {%- endif -%}
+      <button type="button" class="fn-split-ship-status__change" data-fn-split-ship-change>
+        Change shipping preference
+      </button>
+    </div>
+  {%- endif -%}
+{%- endif -%}

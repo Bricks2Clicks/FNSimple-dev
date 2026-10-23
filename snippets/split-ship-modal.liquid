@@ -1,0 +1,288 @@
+{%- comment -%}
+  FN Simple — mixed-cart split shipment (Be Yours 8.1.1)
+  Render once from layout/theme.liquid (see split-ship/README.md).
+  Set split_ship_variant_id to the fee product's VARIANT id, not the product id.
+{%- endcomment -%}
+
+{%- assign split_ship_variant_id = 67928826413210 -%}
+{%- assign split_ship_product_id = 15457319256218 -%}
+
+<style>
+  .fn-split-ship-dialog {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+  .fn-split-ship-dialog.is-open {
+    display: flex;
+  }
+  .fn-split-ship-dialog__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(20, 20, 20, 0.55);
+  }
+  .fn-split-ship-dialog__panel {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 32rem;
+    max-height: min(92vh, 40rem);
+    overflow: auto;
+    background: #fff;
+    color: #111;
+    padding: 1.5rem 1.25rem 1.75rem;
+    border-radius: 1rem 1rem 0 0;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
+  }
+  @media (min-width: 750px) {
+    .fn-split-ship-dialog {
+      align-items: center;
+      padding: 1.5rem;
+    }
+    .fn-split-ship-dialog__panel {
+      border-radius: 0.75rem;
+      padding: 1.75rem 1.75rem 1.5rem;
+    }
+  }
+  .fn-split-ship-dialog__title {
+    margin: 0 0 0.5rem;
+    font-size: 1.35rem;
+    line-height: 1.25;
+  }
+  .fn-split-ship-dialog__lead {
+    margin: 0 0 1.25rem;
+    font-size: 0.95rem;
+    line-height: 1.45;
+  }
+  .fn-split-ship-dialog__options {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0 0 1.25rem;
+  }
+  .fn-split-ship-dialog__option {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.65rem 0.75rem;
+    align-items: start;
+    margin: 0;
+    padding: 0.9rem 1rem;
+    border: 1px solid #d4d4d4;
+    border-radius: 0.5rem;
+    cursor: pointer;
+  }
+  .fn-split-ship-dialog__option:has(input:focus-visible) {
+    outline: 2px solid #111;
+    outline-offset: 2px;
+  }
+  .fn-split-ship-dialog__option input {
+    margin-top: 0.2rem;
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+  .fn-split-ship-dialog__option-title {
+    font-weight: 650;
+  }
+  .fn-split-ship-dialog__option-help {
+    grid-column: 2;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: #444;
+  }
+  .fn-split-ship-dialog__error {
+    display: none;
+    margin: 0 0 1rem;
+    padding: 0.65rem 0.75rem;
+    background: #fdecec;
+    color: #8a1f1f;
+    font-size: 0.9rem;
+  }
+  .fn-split-ship-dialog__error.is-visible {
+    display: block;
+  }
+  .fn-split-ship-dialog__submit {
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.75rem 1rem;
+    border: 0;
+    border-radius: 0.4rem;
+    background: #111;
+    color: #fff;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  .fn-split-ship-dialog__submit:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .fn-split-ship-status {
+    display: grid;
+    gap: 0.45rem 1rem;
+    align-items: center;
+    width: 100%;
+    margin: 0.75rem 0 1rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid #d4d4d4;
+    border-radius: 0.5rem;
+    background: #f7f7f7;
+    color: #111;
+    box-sizing: border-box;
+  }
+  @media (min-width: 750px) {
+    .fn-split-ship-status {
+      grid-template-columns: 1fr auto;
+    }
+  }
+  .fn-split-ship-status__title {
+    margin: 0;
+    font-weight: 650;
+    font-size: 0.95rem;
+  }
+  .fn-split-ship-status__text {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: #444;
+    grid-column: 1;
+  }
+  .fn-split-ship-status__change {
+    min-height: 2.75rem;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid currentColor;
+    background: #fff;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  @media (min-width: 750px) {
+    .fn-split-ship-status__change {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+    }
+  }
+  body.fn-split-ship-hide-wallets shopify-accelerated-checkout,
+  body.fn-split-ship-hide-wallets .additional-checkout-buttons,
+  body.fn-split-ship-hide-wallets .cart__dynamic-checkout-buttons,
+  body.fn-split-ship-hide-wallets [data-shopify="payment-button"],
+  body.fn-split-ship-hide-wallets .shopify-payment-button {
+    display: none !important;
+  }
+  .fn-split-ship-fee-line .quantity,
+  .fn-split-ship-fee-line quantity-input,
+  .fn-split-ship-fee-line .quantity-selector,
+  .fn-split-ship-fee-line .qty,
+  .fn-split-ship-fee-line .qty-selector,
+  .fn-split-ship-fee-line .qty-input,
+  .fn-split-ship-fee-line .mini-cart__quantity,
+  .fn-split-ship-fee-line .cart-item__quantity,
+  .fn-split-ship-fee-line .cart-quantity,
+  .fn-split-ship-fee-line .product-form__quantity,
+  .fn-split-ship-fee-line [name^="updates"],
+  .fn-split-ship-fee-line button[name="minus"],
+  .fn-split-ship-fee-line button[name="plus"],
+  .fn-split-ship-fee-line [data-action="minus"],
+  .fn-split-ship-fee-line [data-action="plus"],
+  .fn-split-ship-fee-line [data-quantity-minus],
+  .fn-split-ship-fee-line [data-quantity-plus],
+  .fn-split-ship-fee-line .quantity__button,
+  .fn-split-ship-fee-line cart-remove-button,
+  .fn-split-ship-fee-line .cart-remove,
+  .fn-split-ship-fee-line .cart-item__remove,
+  .fn-split-ship-fee-line .mini-cart__remove,
+  .fn-split-ship-fee-line [data-remove],
+  .fn-split-ship-fee-line [data-action="remove"],
+  .fn-split-ship-fee-line a[href*="/cart/change"],
+  .fn-split-ship-fee-line button[aria-label*="emove"],
+  .fn-split-ship-fee-line a[aria-label*="emove"] {
+    display: none !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+  }
+  a[href*="id={{ split_ship_variant_id }}"],
+  a[href*="/cart/change"][href*="{{ split_ship_variant_id }}"] {
+    display: none !important;
+  }
+  {%- for item in cart.items -%}
+    {%- if item.variant.id == split_ship_variant_id or item.product.id == split_ship_product_id -%}
+      .mini-cart__item:has(a[href*="/products/{{ item.product.handle }}"]) .quantity,
+      .mini-cart__item:has(a[href*="/products/{{ item.product.handle }}"]) .quantity-selector,
+      .mini-cart__item:has(a[href*="/products/{{ item.product.handle }}"]) .mini-cart__quantity,
+      .mini-cart__item:has(a[href*="/products/{{ item.product.handle }}"]) .mini-cart__remove,
+      .mini-cart__item:has(a[href*="/products/{{ item.product.handle }}"]) cart-remove-button,
+      .mini-cart__item:has(a[href*="/products/{{ item.product.handle }}"]) a[href*="/cart/change"],
+      .cart-item:has(a[href*="/products/{{ item.product.handle }}"]) .quantity,
+      .cart-item:has(a[href*="/products/{{ item.product.handle }}"]) .quantity-selector,
+      .cart-item:has(a[href*="/products/{{ item.product.handle }}"]) .cart-item__quantity,
+      .cart-item:has(a[href*="/products/{{ item.product.handle }}"]) cart-remove-button,
+      .cart-item:has(a[href*="/products/{{ item.product.handle }}"]) a[href*="/cart/change"],
+      tr:has(a[href*="/products/{{ item.product.handle }}"]) .quantity,
+      tr:has(a[href*="/products/{{ item.product.handle }}"]) a[href*="/cart/change"] {
+        display: none !important;
+        pointer-events: none !important;
+      }
+    {%- endif -%}
+  {%- endfor -%}
+</style>
+
+<div
+  id="fn-split-ship-dialog"
+  class="fn-split-ship-dialog"
+  hidden
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="fn-split-ship-title"
+>
+  <div class="fn-split-ship-dialog__backdrop" data-fn-split-ship-backdrop></div>
+  <div class="fn-split-ship-dialog__panel" role="document">
+    <h2 id="fn-split-ship-title" class="fn-split-ship-dialog__title">How should this order ship?</h2>
+    <p class="fn-split-ship-dialog__lead">
+      Your cart has items that ship in about a week and items that are not in stock. Choose one option to continue.
+    </p>
+    <form id="fn-split-ship-form">
+      <div class="fn-split-ship-dialog__options" role="radiogroup" aria-labelledby="fn-split-ship-title">
+        <label class="fn-split-ship-dialog__option">
+          <input type="radio" name="fn-split-ship-choice" value="split">
+          <span class="fn-split-ship-dialog__option-title">Split the shipment — $5 charge</span>
+          <span class="fn-split-ship-dialog__option-help">We pack ready items now and send the rest when those pieces are available.</span>
+        </label>
+        <label class="fn-split-ship-dialog__option">
+          <input type="radio" name="fn-split-ship-choice" value="delay">
+          <span class="fn-split-ship-dialog__option-title">Delay the shipment (no extra charge)</span>
+          <span class="fn-split-ship-dialog__option-help">We hold everything until all items are ready, then send one package.</span>
+        </label>
+      </div>
+      <p id="fn-split-ship-error" class="fn-split-ship-dialog__error" role="alert"></p>
+      <button type="submit" class="fn-split-ship-dialog__submit" id="fn-split-ship-submit" disabled>Continue</button>
+    </form>
+  </div>
+</div>
+
+<div id="fn-split-ship-status-template" hidden>
+  <div class="fn-split-ship-status" data-fn-split-ship-status>
+    <p class="fn-split-ship-status__title" data-fn-split-ship-status-title></p>
+    <p class="fn-split-ship-status__text" data-fn-split-ship-status-text></p>
+    <button type="button" class="fn-split-ship-status__change" data-fn-split-ship-change>
+      Change shipping preference
+    </button>
+  </div>
+</div>
+
+<script type="application/json" id="fn-split-ship-config">
+  {
+    "feeVariantId": {{ split_ship_variant_id | json }},
+    "feeProductId": {{ split_ship_product_id | json }},
+    "vendors": {
+      "oneWeek": "One Week Item",
+      "nonStock": "Non Stock Item"
+    },
+    "attributeKey": "Shipment preference",
+    "values": {
+      "split": "Split - $5",
+      "delay": "Delay until complete"
+    }
+  }
+</script>
+
+<script src="{{ 'split-ship.js' | asset_url }}" defer></script>

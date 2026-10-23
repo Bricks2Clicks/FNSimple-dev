@@ -1,0 +1,297 @@
+{% doc %}
+  @prompt
+    Create a slideshow block with settings to fit the slideshow on desktop and mobile versions. , Add setting to add or remove extra slides, I want to be able to add more than 3 slide if needed. It needs to have autoplay so the slides automatically scroll. 
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-slideshow-{{ ai_gen_id }} {
+    display: block;
+    position: relative;
+    width: {{ block.settings.desktop_width_percent }}%;
+    max-width: 100%;
+    overflow: hidden;
+    background: {{ block.settings.background_color }};
+  }
+
+  .ai-slideshow-{{ ai_gen_id }}__viewport {
+    position: relative;
+    width: 100%;
+    height: {{ block.settings.desktop_height }}px;
+  }
+
+  .ai-slideshow-{{ ai_gen_id }}__slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: {{ block.settings.content_position }};
+    justify-content: {{ block.settings.content_alignment }};
+    opacity: 0;
+    visibility: hidden;
+    z-index: 0;
+  }
+
+  .ai-slideshow-{{ ai_gen_id }}__slide.is-active {
+    opacity: 1;
+    visibility: visible;
+    z-index: 1;
+  }
+
+  .ai-slideshow-{{ ai_gen_id }}__image,
+  .ai-slideshow-{{ ai_gen_id }}__placeholder {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .ai-slideshow-{{ ai_gen_id }}__image {
+    object-fit: {{ block.settings.desktop_image_fit }};
+  }
+
+  .ai-slideshow-{{ ai_gen_id }}__placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: {{ block.settings.background_color }};
+    color: {{ block.settings.text_color }};
+  }
+
+  .ai-slideshow-{{ ai_gen_id }}__placeholder svg {
+    width: 100%;
+    height: 100%;
+    max-width: 420px;
+    max-height: 420px;
+  }
+
+  .ai-slideshow-{{ ai_gen_id }}__overlay {
+    position: absolute;
+    inset: 0;
+    background: {{ block.settings.overlay_color }};
+    opacity: {{ block.settings.overlay_opacity | divided_by: 100.0 }};
+  }
+
+  .ai-slideshow-{{ ai_gen_id }}__content {
+    position: relative;
+    z-index: 2;
+    width: min(90%, 620px);
+    margin: 32px;
+    text-align: {{ block.settings.text_alignment }};
+    color: {{ block.settings.text_color }};
+  }
+
+  .ai-slideshow-{{ ai_gen_id }}__heading {
+    margin: 0 0 12px;
+    color: inherit;
+    font-size: {{ block.settings.heading_size }}px;
+  }
+
+  .ai-slideshow-{{ ai_gen_id }}__text {
+    margin: 0 0 20px;
+    color: inherit;
+  }
+
+  .ai-slideshow-{{ ai_gen_id }}__link {
+    display: inline-flex;
+    padding: 12px 22px;
+    background: {{ block.settings.button_color }};
+    color: {{ block.settings.button_text_color }};
+    border-radius: {{ block.settings.button_radius }}px;
+    text-decoration: none;
+  }
+
+  .ai-slideshow-{{ ai_gen_id }}__controls {
+    position: absolute;
+    right: 18px;
+    bottom: 18px;
+    z-index: 3;
+    display: flex;
+    gap: 8px;
+  }
+
+  .ai-slideshow-{{ ai_gen_id }}__control {
+    width: 38px;
+    height: 38px;
+    border: 1px solid {{ block.settings.control_color }};
+    background: {{ block.settings.control_background }};
+    color: {{ block.settings.control_color }};
+    cursor: pointer;
+  }
+
+  .ai-slideshow-{{ ai_gen_id }}__control:focus-visible,
+  .ai-slideshow-{{ ai_gen_id }}__link:focus-visible {
+    outline: 3px solid {{ block.settings.focus_color }};
+    outline-offset: 3px;
+  }
+
+  @media screen and (max-width: 749px) {
+    .ai-slideshow-{{ ai_gen_id }}__viewport {
+      height: {{ block.settings.mobile_height }}px;
+    }
+
+    .ai-slideshow-{{ ai_gen_id }}__image {
+      object-fit: {{ block.settings.mobile_image_fit }};
+    }
+
+    .ai-slideshow-{{ ai_gen_id }}__content {
+      margin: 22px;
+    }
+
+    .ai-slideshow-{{ ai_gen_id }}__heading {
+      font-size: {{ block.settings.mobile_heading_size }}px;
+    }
+  }
+{% endstyle %}
+
+<ai-slideshow-{{ ai_gen_id }} class="ai-slideshow-{{ ai_gen_id }}" data-autoplay="{{ block.settings.autoplay }}" data-interval="{{ block.settings.autoplay_delay | times: 1000 }}" {{ block.shopify_attributes }}>
+  <div class="ai-slideshow-{{ ai_gen_id }}__viewport" aria-live="polite">
+    {% for i in (1..8) %}
+      {% liquid
+        assign enabled_key = 'slide_' | append: i | append: '_enabled'
+        assign image_key = 'slide_' | append: i | append: '_image'
+        assign heading_key = 'slide_' | append: i | append: '_heading'
+        assign text_key = 'slide_' | append: i | append: '_text'
+        assign link_label_key = 'slide_' | append: i | append: '_link_label'
+        assign link_key = 'slide_' | append: i | append: '_link'
+        assign enabled = block.settings[enabled_key]
+        assign image = block.settings[image_key]
+        assign heading = block.settings[heading_key]
+        assign text = block.settings[text_key]
+        assign link_label = block.settings[link_label_key]
+        assign link = block.settings[link_key]
+      %}
+      {% if enabled %}
+        <article class="ai-slideshow-{{ ai_gen_id }}__slide{% if forloop.first %} is-active{% endif %}" data-slide-index="{{ i | minus: 1 }}" aria-hidden="{% if forloop.first %}false{% else %}true{% endif %}">
+          {% if image != blank %}
+            <img class="ai-slideshow-{{ ai_gen_id }}__image" src="{{ image | image_url: width: 2400 }}" alt="{{ image.alt | escape }}" loading="lazy" width="{{ image.width }}" height="{{ image.height }}">
+          {% else %}
+            <div class="ai-slideshow-{{ ai_gen_id }}__placeholder">{{ 'image' | placeholder_svg_tag }}</div>
+          {% endif %}
+          <div class="ai-slideshow-{{ ai_gen_id }}__overlay"></div>
+          {% if heading != blank or text != blank or link_label != blank %}
+            <div class="ai-slideshow-{{ ai_gen_id }}__content">
+              {% if heading != blank %}<h2 class="ai-slideshow-{{ ai_gen_id }}__heading">{{ heading }}</h2>{% endif %}
+              {% if text != blank %}<div class="ai-slideshow-{{ ai_gen_id }}__text">{{ text }}</div>{% endif %}
+              {% if link_label != blank and link != blank %}<a class="ai-slideshow-{{ ai_gen_id }}__link" href="{{ link }}">{{ link_label }}</a>{% endif %}
+            </div>
+          {% endif %}
+        </article>
+      {% endif %}
+    {% endfor %}
+  </div>
+  <div class="ai-slideshow-{{ ai_gen_id }}__controls">
+    <button class="ai-slideshow-{{ ai_gen_id }}__control" type="button" data-action="previous" aria-label="Previous slide">‹</button>
+    <button class="ai-slideshow-{{ ai_gen_id }}__control" type="button" data-action="next" aria-label="Next slide">›</button>
+  </div>
+</ai-slideshow-{{ ai_gen_id }}>
+
+<script>
+  (function() {
+    class AiSlideshow{{ ai_gen_id }} extends HTMLElement {
+      connectedCallback() {
+        this.slides = Array.from(this.querySelectorAll('.ai-slideshow-{{ ai_gen_id }}__slide'));
+        this.index = 0;
+        this.timer = null;
+        this.querySelectorAll('[data-action]').forEach((button) => button.addEventListener('click', () => this.go(button.dataset.action === 'next' ? 1 : -1)));
+        if (this.dataset.autoplay === 'true' && this.slides.length > 1) this.start();
+        this.addEventListener('mouseenter', () => this.stop());
+        this.addEventListener('mouseleave', () => { if (this.dataset.autoplay === 'true') this.start(); });
+      }
+      go(direction) {
+        if (!this.slides.length) return;
+        this.slides[this.index].classList.remove('is-active');
+        this.slides[this.index].setAttribute('aria-hidden', 'true');
+        this.index = (this.index + direction + this.slides.length) % this.slides.length;
+        this.slides[this.index].classList.add('is-active');
+        this.slides[this.index].setAttribute('aria-hidden', 'false');
+      }
+      start() { this.stop(); this.timer = setInterval(() => this.go(1), Number(this.dataset.interval)); }
+      stop() { if (this.timer) clearInterval(this.timer); this.timer = null; }
+    }
+    customElements.define('ai-slideshow-{{ ai_gen_id }}', AiSlideshow{{ ai_gen_id }});
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Responsive slideshow",
+  "settings": [
+    { "type": "header", "content": "Layout" },
+    { "type": "range", "id": "desktop_width_percent", "label": "Desktop width", "min": 50, "max": 100, "step": 5, "unit": "%", "default": 100 },
+    { "type": "range", "id": "desktop_height", "label": "Desktop height", "min": 240, "max": 900, "step": 20, "unit": "px", "default": 560 },
+    { "type": "range", "id": "mobile_height", "label": "Mobile height", "min": 180, "max": 700, "step": 20, "unit": "px", "default": 420 },
+    { "type": "select", "id": "desktop_image_fit", "label": "Desktop image fit", "options": [{ "value": "cover", "label": "Fill" }, { "value": "contain", "label": "Fit" }], "default": "cover" },
+    { "type": "select", "id": "mobile_image_fit", "label": "Mobile image fit", "options": [{ "value": "cover", "label": "Fill" }, { "value": "contain", "label": "Fit" }], "default": "cover" },
+    { "type": "checkbox", "id": "autoplay", "label": "Autoplay slides", "default": true },
+    { "type": "range", "id": "autoplay_delay", "label": "Autoplay delay", "min": 2, "max": 12, "step": 1, "unit": "s", "default": 5 },
+    { "type": "header", "content": "Content style" },
+    { "type": "select", "id": "content_position", "label": "Vertical position", "options": [{ "value": "flex-start", "label": "Top" }, { "value": "center", "label": "Center" }, { "value": "flex-end", "label": "Bottom" }], "default": "center" },
+    { "type": "select", "id": "content_alignment", "label": "Horizontal position", "options": [{ "value": "flex-start", "label": "Left" }, { "value": "center", "label": "Center" }, { "value": "flex-end", "label": "Right" }], "default": "center" },
+    { "type": "select", "id": "text_alignment", "label": "Text alignment", "options": [{ "value": "left", "label": "Left" }, { "value": "center", "label": "Center" }, { "value": "right", "label": "Right" }], "default": "center" },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 20, "max": 72, "step": 4, "unit": "px", "default": 44 },
+    { "type": "range", "id": "mobile_heading_size", "label": "Mobile heading size", "min": 18, "max": 48, "step": 2, "unit": "px", "default": 30 },
+    { "type": "color", "id": "background_color", "label": "Background", "default": "#1e2262" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#ffffff" },
+    { "type": "color", "id": "overlay_color", "label": "Overlay", "default": "#212326" },
+    { "type": "range", "id": "overlay_opacity", "label": "Overlay opacity", "min": 0, "max": 80, "step": 5, "unit": "%", "default": 25 },
+    { "type": "color", "id": "button_color", "label": "Button", "default": "#1a1b18" },
+    { "type": "color", "id": "button_text_color", "label": "Button text", "default": "#ffffff" },
+    { "type": "range", "id": "button_radius", "label": "Button radius", "min": 0, "max": 40, "step": 2, "unit": "px", "default": 0 },
+    { "type": "color", "id": "control_color", "label": "Control icons", "default": "#ffffff" },
+    { "type": "color", "id": "control_background", "label": "Control background", "default": "#1a1b18" },
+    { "type": "color", "id": "focus_color", "label": "Focus outline", "default": "#87adf5" },
+    { "type": "header", "content": "Slides" },
+    { "type": "checkbox", "id": "slide_1_enabled", "label": "Show slide 1", "default": true },
+    { "type": "image_picker", "id": "slide_1_image", "label": "Slide 1 image" },
+    { "type": "text", "id": "slide_1_heading", "label": "Slide 1 heading", "default": "Ready for service" },
+    { "type": "textarea", "id": "slide_1_text", "label": "Slide 1 text", "default": "Equip your department with dependable uniforms and gear." },
+    { "type": "text", "id": "slide_1_link_label", "label": "Slide 1 button", "default": "Shop collection" },
+    { "type": "url", "id": "slide_1_link", "label": "Slide 1 link" },
+    { "type": "checkbox", "id": "slide_2_enabled", "label": "Show slide 2", "default": true },
+    { "type": "image_picker", "id": "slide_2_image", "label": "Slide 2 image" },
+    { "type": "text", "id": "slide_2_heading", "label": "Slide 2 heading", "default": "Built for departments" },
+    { "type": "textarea", "id": "slide_2_text", "label": "Slide 2 text", "default": "Simplify ordering with a storefront tailored to your team." },
+    { "type": "text", "id": "slide_2_link_label", "label": "Slide 2 button", "default": "Learn more" },
+    { "type": "url", "id": "slide_2_link", "label": "Slide 2 link" },
+    { "type": "checkbox", "id": "slide_3_enabled", "label": "Show slide 3", "default": true },
+    { "type": "image_picker", "id": "slide_3_image", "label": "Slide 3 image" },
+    { "type": "text", "id": "slide_3_heading", "label": "Slide 3 heading", "default": "Uniforms that perform" },
+    { "type": "textarea", "id": "slide_3_text", "label": "Slide 3 text", "default": "Professional apparel and accessories selected for readiness." },
+    { "type": "text", "id": "slide_3_link_label", "label": "Slide 3 button", "default": "Explore gear" },
+    { "type": "url", "id": "slide_3_link", "label": "Slide 3 link" },
+    { "type": "checkbox", "id": "slide_4_enabled", "label": "Show slide 4", "default": false },
+    { "type": "image_picker", "id": "slide_4_image", "label": "Slide 4 image" },
+    { "type": "text", "id": "slide_4_heading", "label": "Slide 4 heading", "default": "Slide 4" },
+    { "type": "textarea", "id": "slide_4_text", "label": "Slide 4 text", "default": "Add your message here." },
+    { "type": "text", "id": "slide_4_link_label", "label": "Slide 4 button", "default": "View details" },
+    { "type": "url", "id": "slide_4_link", "label": "Slide 4 link" },
+    { "type": "checkbox", "id": "slide_5_enabled", "label": "Show slide 5", "default": false },
+    { "type": "image_picker", "id": "slide_5_image", "label": "Slide 5 image" },
+    { "type": "text", "id": "slide_5_heading", "label": "Slide 5 heading", "default": "Slide 5" },
+    { "type": "textarea", "id": "slide_5_text", "label": "Slide 5 text", "default": "Add your message here." },
+    { "type": "text", "id": "slide_5_link_label", "label": "Slide 5 button", "default": "View details" },
+    { "type": "url", "id": "slide_5_link", "label": "Slide 5 link" },
+    { "type": "checkbox", "id": "slide_6_enabled", "label": "Show slide 6", "default": false },
+    { "type": "image_picker", "id": "slide_6_image", "label": "Slide 6 image" },
+    { "type": "text", "id": "slide_6_heading", "label": "Slide 6 heading", "default": "Slide 6" },
+    { "type": "textarea", "id": "slide_6_text", "label": "Slide 6 text", "default": "Add your message here." },
+    { "type": "text", "id": "slide_6_link_label", "label": "Slide 6 button", "default": "View details" },
+    { "type": "url", "id": "slide_6_link", "label": "Slide 6 link" },
+    { "type": "checkbox", "id": "slide_7_enabled", "label": "Show slide 7", "default": false },
+    { "type": "image_picker", "id": "slide_7_image", "label": "Slide 7 image" },
+    { "type": "text", "id": "slide_7_heading", "label": "Slide 7 heading", "default": "Slide 7" },
+    { "type": "textarea", "id": "slide_7_text", "label": "Slide 7 text", "default": "Add your message here." },
+    { "type": "text", "id": "slide_7_link_label", "label": "Slide 7 button", "default": "View details" },
+    { "type": "url", "id": "slide_7_link", "label": "Slide 7 link" },
+    { "type": "checkbox", "id": "slide_8_enabled", "label": "Show slide 8", "default": false },
+    { "type": "image_picker", "id": "slide_8_image", "label": "Slide 8 image" },
+    { "type": "text", "id": "slide_8_heading", "label": "Slide 8 heading", "default": "Slide 8" },
+    { "type": "textarea", "id": "slide_8_text", "label": "Slide 8 text", "default": "Add your message here." },
+    { "type": "text", "id": "slide_8_link_label", "label": "Slide 8 button", "default": "View details" },
+    { "type": "url", "id": "slide_8_link", "label": "Slide 8 link" }
+  ],
+  "presets": [{ "name": "Responsive slideshow" }],
+  "tag": null,
+  "class": "responsive-slideshow-block"
+}
+{% endschema %}

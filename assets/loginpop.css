@@ -1,0 +1,100 @@
+/* HEADER - NAVIGATION LOGIN */
+.cart__login-title,
+.cart__login-paragraph {
+  display: none;
+}
+.lightbox {
+  display: none;
+  z-index: 999;
+}
+.lightbox:target {
+  position: absolute;
+  right: 4rem;
+  top: 1rem;
+  outline: none;
+  display: inline-block;
+  margin: 15px auto;
+  width: 300px;
+  height: 432px;
+  background-color: #fff;
+  padding: 15px;
+  border: 1px solid #aa100e;
+  border-radius: 0px;
+}
+/* .header {display: grid;grid-template-areas: 'left-icon logintoggle heading icons' !important;grid-template-columns: auto auto auto 1fr !important;align-items: center;padding-top: 1rem;padding-bottom: 1rem;} */
+
+a.logintogglestyle {
+  text-decoration: none !important;
+  font-weight: bold !important;
+  background-color: #aa100e !important;
+  color: white;
+  padding: 4px;
+  border-radius: 10%;
+}
+a.logintogglestyle :active {
+  text-decoration: none !important;
+  font-weight: bold !important;
+  background-color: #aa100e !important;
+  color: white;
+  padding: 4px;
+  border-radius: 10%;
+}
+a.logintogglestyle :hover {
+  text-decoration: underline !important;
+  font-weight: bold !important;
+  background-color: #aa100e !important;
+  color: white;
+  padding: 4px;
+  border-radius: 10%;
+}
+a.logintogglestyle :visited {
+  text-decoration: none !important;
+  font-weight: bold !important;
+  background-color: #aa100e !important;
+  color: white;
+  padding: 4px;
+  border-radius: 10%;
+}
+.header__active-menu-item a.logintogglestyle {
+  text-decoration: none !important;
+}
+.close-button {
+  border: none;
+  display: inline-block;
+  padding: 4px 4px;
+  vertical-align: middle;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  background-color: inherit;
+  text-align: center;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.topright {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.login {
+  height: 400px;
+}
+.login.customer {
+  height: 375px;
+  padding-bottom: 1rem;
+}
+/*
+#customer_login {
+  height: 375px;
+}*/
+
+/* HEADER - NAVIGATION MOBILE */
+@media screen and (min-width: 990px) {
+  .header--middle-left {
+    grid-template-areas: "heading navigation logintoggle icons" !important;
+    grid-template-columns: auto auto auto 1fr !important;
+    column-gap: 2rem;
+  }
+}
