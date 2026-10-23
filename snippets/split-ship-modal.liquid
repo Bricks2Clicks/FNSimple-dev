@@ -1,13 +1,39 @@
 {%- comment -%}
-  FN Simple — mixed-cart split shipment (Be Yours 8.1.1)
-  Render once from layout/theme.liquid (see split-ship/README.md).
-  Set split_ship_variant_id to the fee product's VARIANT id, not the product id.
+  FNS split-ship: mixed-cart shipping prompt (Be Yours 8.1.1).
+  Rendered once from layout/theme.liquid before </body>.
+  The fee VARIANT id lives in snippets/split-ship-fee-id.liquid.
 {%- endcomment -%}
+{%- capture split_ship_variant_id -%}{%- render 'split-ship-fee-id' -%}{%- endcapture -%}
+{%- assign split_ship_variant_id = split_ship_variant_id | strip | plus: 0 -%}
 
-{%- assign split_ship_variant_id = 67928826413210 -%}
-{%- assign split_ship_product_id = 15457319256218 -%}
+{%- liquid
+  assign fn_has_week = false
+  assign fn_has_nonstock = false
+  for item in cart.items
+    if item.variant_id == split_ship_variant_id
+      continue
+    endif
+    assign fn_vendor = item.vendor | strip | downcase
+    if fn_vendor == 'one week item'
+      assign fn_has_week = true
+    endif
+    if fn_vendor == 'non stock item'
+      assign fn_has_nonstock = true
+    endif
+  endfor
+  assign fn_pref = cart.attributes['Shipment preference']
+  assign fn_needs_choice = false
+  if fn_has_week and fn_has_nonstock
+    unless fn_pref == 'Split shipping' or fn_pref == 'Ship together'
+      assign fn_needs_choice = true
+    endunless
+  endif
+-%}
 
 <style>
+  :root {
+    --fn-split-navy: #1E2262;
+  }
   .fn-split-ship-dialog {
     position: fixed;
     inset: 0;
@@ -33,7 +59,7 @@
     max-height: min(92vh, 40rem);
     overflow: auto;
     background: #fff;
-    color: #111;
+    color: var(--fn-split-navy);
     padding: 1.5rem 1.25rem 1.75rem;
     border-radius: 1rem 1rem 0 0;
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
@@ -50,13 +76,20 @@
   }
   .fn-split-ship-dialog__title {
     margin: 0 0 0.5rem;
-    font-size: 1.35rem;
-    line-height: 1.25;
+    font-size: 1.3rem;
+    line-height: 1.3;
+    color: var(--fn-split-navy);
   }
-  .fn-split-ship-dialog__lead {
-    margin: 0 0 1.25rem;
+  .fn-split-ship-dialog__lead,
+  .fn-split-ship-dialog__prompt {
+    margin: 0 0 1rem;
     font-size: 0.95rem;
     line-height: 1.45;
+    color: var(--fn-split-navy);
+  }
+  .fn-split-ship-dialog__prompt {
+    font-weight: 650;
+    margin-bottom: 0.75rem;
   }
   .fn-split-ship-dialog__options {
     display: grid;
@@ -66,22 +99,27 @@
   .fn-split-ship-dialog__option {
     display: grid;
     grid-template-columns: auto 1fr;
-    gap: 0.65rem 0.75rem;
+    gap: 0.35rem 0.75rem;
     align-items: start;
     margin: 0;
     padding: 0.9rem 1rem;
-    border: 1px solid #d4d4d4;
+    border: 1px solid var(--fn-split-navy);
     border-radius: 0.5rem;
+    color: var(--fn-split-navy);
     cursor: pointer;
   }
+  .fn-split-ship-dialog__option:has(input:checked) {
+    box-shadow: inset 0 0 0 1px var(--fn-split-navy);
+  }
   .fn-split-ship-dialog__option:has(input:focus-visible) {
-    outline: 2px solid #111;
+    outline: 2px solid var(--fn-split-navy);
     outline-offset: 2px;
   }
   .fn-split-ship-dialog__option input {
     margin-top: 0.2rem;
     width: 1.15rem;
     height: 1.15rem;
+    accent-color: var(--fn-split-navy);
   }
   .fn-split-ship-dialog__option-title {
     font-weight: 650;
@@ -90,7 +128,7 @@
     grid-column: 2;
     font-size: 0.875rem;
     line-height: 1.4;
-    color: #444;
+    color: var(--fn-split-navy);
   }
   .fn-split-ship-dialog__error {
     display: none;
@@ -107,9 +145,9 @@
     width: 100%;
     min-height: 2.75rem;
     padding: 0.75rem 1rem;
-    border: 0;
+    border: 1px solid var(--fn-split-navy);
     border-radius: 0.4rem;
-    background: #111;
+    background: var(--fn-split-navy);
     color: #fff;
     font-size: 1rem;
     cursor: pointer;
@@ -123,13 +161,17 @@
     gap: 0.45rem 1rem;
     align-items: center;
     width: 100%;
-    margin: 0.75rem 0 1rem;
+    margin: 0 0 1rem;
     padding: 0.9rem 1rem;
-    border: 1px solid #d4d4d4;
+    border: 1px solid var(--fn-split-navy);
     border-radius: 0.5rem;
-    background: #f7f7f7;
-    color: #111;
+    background: #fff;
+    color: var(--fn-split-navy);
     box-sizing: border-box;
+    text-align: left;
+  }
+  .fn-split-ship-status[hidden] {
+    display: none !important;
   }
   @media (min-width: 750px) {
     .fn-split-ship-status {
@@ -140,21 +182,28 @@
     margin: 0;
     font-weight: 650;
     font-size: 0.95rem;
+    color: var(--fn-split-navy);
   }
   .fn-split-ship-status__text {
     margin: 0;
     font-size: 0.875rem;
     line-height: 1.4;
-    color: #444;
+    color: var(--fn-split-navy);
     grid-column: 1;
   }
   .fn-split-ship-status__change {
     min-height: 2.75rem;
     padding: 0.5rem 0.9rem;
-    border: 1px solid currentColor;
+    border: 1px solid var(--fn-split-navy);
+    border-radius: 0.4rem;
     background: #fff;
+    color: var(--fn-split-navy);
     font-size: 0.9rem;
     cursor: pointer;
+  }
+  .fn-split-ship-status__change:hover {
+    background: var(--fn-split-navy);
+    color: #fff;
   }
   @media (min-width: 750px) {
     .fn-split-ship-status__change {
@@ -162,69 +211,32 @@
       grid-row: 1 / span 2;
     }
   }
-  body.fn-split-ship-hide-wallets shopify-accelerated-checkout,
+  .mini-cart__footer .fn-split-ship-status {
+    margin: 1rem 0;
+  }
+  body.fn-split-ship-hide-wallets shopify-accelerated-checkout-cart,
   body.fn-split-ship-hide-wallets .additional-checkout-buttons,
-  body.fn-split-ship-hide-wallets .cart__dynamic-checkout-buttons,
-  body.fn-split-ship-hide-wallets [data-shopify="payment-button"],
-  body.fn-split-ship-hide-wallets .shopify-payment-button {
+  body.fn-split-ship-hide-wallets .cart__dynamic-checkout-buttons {
     display: none !important;
   }
-  .fn-split-ship-fee-line .quantity,
-  .fn-split-ship-fee-line quantity-input,
-  .fn-split-ship-fee-line .quantity-selector,
-  .fn-split-ship-fee-line .qty,
-  .fn-split-ship-fee-line .qty-selector,
-  .fn-split-ship-fee-line .qty-input,
-  .fn-split-ship-fee-line .mini-cart__quantity,
-  .fn-split-ship-fee-line .cart-item__quantity,
-  .fn-split-ship-fee-line .cart-quantity,
-  .fn-split-ship-fee-line .product-form__quantity,
-  .fn-split-ship-fee-line [name^="updates"],
-  .fn-split-ship-fee-line button[name="minus"],
-  .fn-split-ship-fee-line button[name="plus"],
-  .fn-split-ship-fee-line [data-action="minus"],
-  .fn-split-ship-fee-line [data-action="plus"],
-  .fn-split-ship-fee-line [data-quantity-minus],
-  .fn-split-ship-fee-line [data-quantity-plus],
-  .fn-split-ship-fee-line .quantity__button,
-  .fn-split-ship-fee-line cart-remove-button,
-  .fn-split-ship-fee-line .cart-remove,
-  .fn-split-ship-fee-line .cart-item__remove,
-  .fn-split-ship-fee-line .mini-cart__remove,
-  .fn-split-ship-fee-line [data-remove],
-  .fn-split-ship-fee-line [data-action="remove"],
-  .fn-split-ship-fee-line a[href*="/cart/change"],
-  .fn-split-ship-fee-line button[aria-label*="emove"],
-  .fn-split-ship-fee-line a[aria-label*="emove"] {
-    display: none !important;
-    pointer-events: none !important;
-    visibility: hidden !important;
-  }
-  a[href*="id={{ split_ship_variant_id }}"],
-  a[href*="/cart/change"][href*="{{ split_ship_variant_id }}"] {
+  [data-fn-split-ship-fee] quantity-input,
+  [data-fn-split-ship-fee] quantity-popover,
+  [data-fn-split-ship-fee] cart-remove-button {
     display: none !important;
   }
-  {%- for item in cart.items -%}
-    {%- if item.variant.id == split_ship_variant_id or item.product.id == split_ship_product_id -%}
-      .mini-cart__item:has(a[href*="/products/{{ item.product.handle }}"]) .quantity,
-      .mini-cart__item:has(a[href*="/products/{{ item.product.handle }}"]) .quantity-selector,
-      .mini-cart__item:has(a[href*="/products/{{ item.product.handle }}"]) .mini-cart__quantity,
-      .mini-cart__item:has(a[href*="/products/{{ item.product.handle }}"]) .mini-cart__remove,
-      .mini-cart__item:has(a[href*="/products/{{ item.product.handle }}"]) cart-remove-button,
-      .mini-cart__item:has(a[href*="/products/{{ item.product.handle }}"]) a[href*="/cart/change"],
-      .cart-item:has(a[href*="/products/{{ item.product.handle }}"]) .quantity,
-      .cart-item:has(a[href*="/products/{{ item.product.handle }}"]) .quantity-selector,
-      .cart-item:has(a[href*="/products/{{ item.product.handle }}"]) .cart-item__quantity,
-      .cart-item:has(a[href*="/products/{{ item.product.handle }}"]) cart-remove-button,
-      .cart-item:has(a[href*="/products/{{ item.product.handle }}"]) a[href*="/cart/change"],
-      tr:has(a[href*="/products/{{ item.product.handle }}"]) .quantity,
-      tr:has(a[href*="/products/{{ item.product.handle }}"]) a[href*="/cart/change"] {
-        display: none !important;
-        pointer-events: none !important;
-      }
-    {%- endif -%}
-  {%- endfor -%}
+  .fn-split-ship-fee-qty {
+    font-size: 0.875rem;
+  }
 </style>
+{%- if fn_needs_choice %}
+  <style id="fn-split-ship-wallets-ssr">
+    shopify-accelerated-checkout-cart,
+    .additional-checkout-buttons,
+    .cart__dynamic-checkout-buttons {
+      display: none !important;
+    }
+  </style>
+{%- endif %}
 
 <div
   id="fn-split-ship-dialog"
@@ -233,24 +245,26 @@
   role="dialog"
   aria-modal="true"
   aria-labelledby="fn-split-ship-title"
+  aria-describedby="fn-split-ship-lead"
 >
-  <div class="fn-split-ship-dialog__backdrop" data-fn-split-ship-backdrop></div>
+  <div class="fn-split-ship-dialog__backdrop"></div>
   <div class="fn-split-ship-dialog__panel" role="document">
-    <h2 id="fn-split-ship-title" class="fn-split-ship-dialog__title">How should this order ship?</h2>
-    <p class="fn-split-ship-dialog__lead">
-      Your cart has items that ship in about a week and items that are not in stock. Choose one option to continue.
+    <h2 id="fn-split-ship-title" class="fn-split-ship-dialog__title">Your cart contains items with different shipping timelines.</h2>
+    <p id="fn-split-ship-lead" class="fn-split-ship-dialog__lead">
+      Some items ship within one week. Others are made as quickly as possible, without a guaranteed ship date.
     </p>
     <form id="fn-split-ship-form">
-      <div class="fn-split-ship-dialog__options" role="radiogroup" aria-labelledby="fn-split-ship-title">
+      <p id="fn-split-ship-prompt" class="fn-split-ship-dialog__prompt">Choose your shipping preference:</p>
+      <div class="fn-split-ship-dialog__options" role="radiogroup" aria-labelledby="fn-split-ship-prompt">
         <label class="fn-split-ship-dialog__option">
           <input type="radio" name="fn-split-ship-choice" value="split">
-          <span class="fn-split-ship-dialog__option-title">Split the shipment — $5 charge</span>
-          <span class="fn-split-ship-dialog__option-help">We pack ready items now and send the rest when those pieces are available.</span>
+          <span class="fn-split-ship-dialog__option-title">Split Shipping (+$5)</span>
+          <span class="fn-split-ship-dialog__option-help">Ship one-week items separately, without waiting for the other items.</span>
         </label>
         <label class="fn-split-ship-dialog__option">
-          <input type="radio" name="fn-split-ship-choice" value="delay">
-          <span class="fn-split-ship-dialog__option-title">Delay the shipment (no extra charge)</span>
-          <span class="fn-split-ship-dialog__option-help">We hold everything until all items are ready, then send one package.</span>
+          <input type="radio" name="fn-split-ship-choice" value="together">
+          <span class="fn-split-ship-dialog__option-title">Ship Together (Free)</span>
+          <span class="fn-split-ship-dialog__option-help">Ship everything together when all items are ready.</span>
         </label>
       </div>
       <p id="fn-split-ship-error" class="fn-split-ship-dialog__error" role="alert"></p>
@@ -259,7 +273,7 @@
   </div>
 </div>
 
-<div id="fn-split-ship-status-template" hidden>
+<template id="fn-split-ship-status-template">
   <div class="fn-split-ship-status" data-fn-split-ship-status>
     <p class="fn-split-ship-status__title" data-fn-split-ship-status-title></p>
     <p class="fn-split-ship-status__text" data-fn-split-ship-status-text></p>
@@ -267,20 +281,29 @@
       Change shipping preference
     </button>
   </div>
-</div>
+</template>
 
 <script type="application/json" id="fn-split-ship-config">
   {
     "feeVariantId": {{ split_ship_variant_id | json }},
-    "feeProductId": {{ split_ship_product_id | json }},
     "vendors": {
       "oneWeek": "One Week Item",
       "nonStock": "Non Stock Item"
     },
     "attributeKey": "Shipment preference",
     "values": {
-      "split": "Split - $5",
-      "delay": "Delay until complete"
+      "split": "Split shipping",
+      "together": "Ship together"
+    },
+    "copy": {
+      "split": {
+        "title": "Shipping: Split Shipping (+$5)",
+        "text": "Ship one-week items separately, without waiting for the other items."
+      },
+      "together": {
+        "title": "Shipping: Ship Together (Free)",
+        "text": "Ship everything together when all items are ready."
+      }
     }
   }
 </script>

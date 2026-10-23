@@ -16,6 +16,9 @@
 
   assign animate_count = 1
 -%}
+{%- comment -%} FNS split-ship {%- endcomment -%}
+{%- capture fn_split_fee_id -%}{%- render 'split-ship-fee-id' -%}{%- endcapture -%}
+{%- assign fn_split_fee_id = fn_split_fee_id | strip | plus: 0 -%}
 
 <form class="mini-cart{% if cart == empty %} is-empty{% endif %}" action="{{ routes.cart_url }}" method="post" id="cart">
   <div class="mini-cart__inner">
@@ -261,7 +264,7 @@
         {%- assign animate_count = animate_count | plus: 1 -%}
         <ul class="mini-cart__navigation" data-animate data-animate-delay-{{ animate_count }}>
           {%- for item in cart.items -%}
-          <li data-variant-id="{{ item.variant_id }}" data-handle="{{ item.product.handle }}" data-quantity="{{ item.quantity }}" data-price="{{ item.original_price }}">
+          <li data-variant-id="{{ item.variant_id }}" data-handle="{{ item.product.handle }}" data-quantity="{{ item.quantity }}" data-price="{{ item.original_price }}"{% if item.variant_id == fn_split_fee_id %} data-fn-split-ship-fee class="fn-split-ship-fee-line"{% endif %}>
             <div class="product-container{% unless item.image %} no-image{% endunless %}">
               {% if item.image %}
                 <div>
@@ -379,7 +382,11 @@
                 -%}
                 <div class="product-quantity">
                   <dt class="cart-item__quantity{% if has_qty_rules or has_vol_pricing %} cart-item__quantity--info{% endif %}">
-                    {%- if gift_wrap_id == nil or item.id != gift_wrap_id -%}
+                    {%- comment -%} FNS split-ship: fee line is fixed at qty 1 with no remove; the hidden input keeps updates[] aligned {%- endcomment -%}
+                    {%- if item.variant_id == fn_split_fee_id -%}
+                      <span class="fn-split-ship-fee-qty">{{ 'products.product.quantity.label' | t }}: 1</span>
+                      <input type="hidden" name="updates[]" value="1">
+                    {%- elsif gift_wrap_id == nil or item.id != gift_wrap_id -%}
                       <quantity-popover>
                         <div class="cart-item__quantity-wrapper quantity-popover-wrapper">
                           <div class="quantity-popover-container{% if has_qty_rules or has_vol_pricing %} quantity-popover-container--hover{% endif %}">
@@ -545,6 +552,8 @@
 
     {%- assign animate_count = animate_count | plus: 1 -%}
     <div class="mini-cart__footer" data-animate data-animate-delay-{{ animate_count }}>
+      {%- comment -%} FNS split-ship {%- endcomment -%}
+      {% render 'split-ship-status' %}
       {%- if gift_wrapping != nil -%}
         <gift-wrapping class="gift-wrapping"
           data-gift-wrap-id="{{ gift_wrap_id }}"

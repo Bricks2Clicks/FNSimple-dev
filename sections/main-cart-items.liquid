@@ -13,6 +13,9 @@
     assign items_in_cart = cart.item_count | minus: gift_wraps_in_cart
   endif
 -%}
+{%- comment -%} FNS split-ship {%- endcomment -%}
+{%- capture fn_split_fee_id -%}{%- render 'split-ship-fee-id' -%}{%- endcapture -%}
+{%- assign fn_split_fee_id = fn_split_fee_id | strip | plus: 0 -%}
 
 {%- style -%}
   #shopify-section-{{ section.id }} {
@@ -58,7 +61,7 @@
             </thead>
             <tbody>
               {%- for item in cart.items -%}
-                <tr class="cart-item" id="CartItem-{{ item.index | plus: 1 }}">
+                <tr class="cart-item{% if item.variant_id == fn_split_fee_id %} fn-split-ship-fee-line{% endif %}" id="CartItem-{{ item.index | plus: 1 }}"{% if item.variant_id == fn_split_fee_id %} data-fn-split-ship-fee{% endif %}>
                   <td class="cart-item__media">
                     {% if item.image %}
                       <span class="media-wrapper media-wrapper--small">
@@ -233,7 +236,11 @@
                     endif
                   -%}
                   <td class="cart-item__quantity{% if has_qty_rules or has_vol_pricing %} cart-item__quantity--info{% endif %}">
-                    {%- if gift_wrap_id == nil or item.id != gift_wrap_id -%}
+                    {%- comment -%} FNS split-ship: fee line is fixed at qty 1 with no remove; the hidden input keeps updates[] aligned {%- endcomment -%}
+                    {%- if item.variant_id == fn_split_fee_id -%}
+                      <span class="fn-split-ship-fee-qty">1</span>
+                      <input type="hidden" name="updates[]" value="1">
+                    {%- elsif gift_wrap_id == nil or item.id != gift_wrap_id -%}
                       <quantity-popover>
                         <div class="cart-item__quantity-wrapper quantity-popover-wrapper">
                           <label class="visually-hidden" for="Quantity-{{ item.index | plus: 1 }}">{{ 'products.product.quantity.label' | t }}</label>
@@ -422,6 +429,8 @@
                       {%- endif -%}
                     </div>
 
+                    {%- comment -%} FNS split-ship: no remove on the fee line {%- endcomment -%}
+                    {%- unless item.variant_id == fn_split_fee_id -%}
                     {%- if gift_wrap_id == nil or item.id != gift_wrap_id -%}
                       <cart-remove-button id="Remove-{{ item.index | plus: 1 }}" data-index="{{ item.index | plus: 1 }}">
                         <a href="{{ item.url_to_remove }}" class="button button--tertiary" aria-label="{{ 'sections.cart.remove_title' | t: title: item.title }}">
@@ -429,6 +438,7 @@
                         </a>
                       </cart-remove-button>
                     {%- endif -%}
+                    {%- endunless -%}
                   </td>
                 </tr>
               {%- endfor -%}

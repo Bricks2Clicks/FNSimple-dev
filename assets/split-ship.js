@@ -12,17 +12,18 @@
   }
 
   var feeVariantId = Number(config.feeVariantId);
-  var feeProductId = Number(config.feeProductId);
   if (!feeVariantId) {
-    console.warn("[split-ship] Set split_ship_variant_id in snippets/split-ship-modal.liquid to the fee VARIANT id.");
+    console.warn("[split-ship] Set the fee VARIANT id in snippets/split-ship-fee-id.liquid.");
     return;
   }
 
-  var VENDOR_WEEK = String(config.vendors.oneWeek).toLowerCase();
-  var VENDOR_NONSTOCK = String(config.vendors.nonStock).toLowerCase();
+  var VENDOR_WEEK = String(config.vendors.oneWeek).trim().toLowerCase();
+  var VENDOR_NONSTOCK = String(config.vendors.nonStock).trim().toLowerCase();
   var ATTR_KEY = config.attributeKey;
   var VAL_SPLIT = config.values.split;
-  var VAL_DELAY = config.values.delay;
+  var VAL_TOGETHER = config.values.together;
+  var COPY = config.copy;
+  var DRAWER_SECTIONS = ["mini-cart", "cart-icon-bubble", "mobile-cart-icon-bubble"];
   var root = (window.Shopify && window.Shopify.routes && window.Shopify.routes.root) || "/";
   var nativeFetch = window.fetch.bind(window);
 
@@ -32,85 +33,58 @@
   var errorEl = document.getElementById("fn-split-ship-error");
   var statusTemplate = document.getElementById("fn-split-ship-status-template");
   if (!dialog || !form || !submitBtn || !errorEl) return;
+  var submitLabel = submitBtn.textContent;
 
   var state = {
     cart: null,
     syncing: false,
     applying: false,
-    quiet: false,
     lastFeeAddAt: 0,
     syncTimer: null,
   };
 
-  function routes() {
-    return {
-      cart: root + "cart.js",
-      add: root + "cart/add.js",
-      change: root + "cart/change.js",
-      update: root + "cart/update.js",
-    };
+  var routes = {
+    cart: root + "cart.js",
+    add: root + "cart/add.js",
+    change: root + "cart/change.js",
+    update: root + "cart/update.js",
+  };
+
+  function isCartPage() {
+    return /\/cart\/?$/.test(window.location.pathname);
   }
 
   function isCartMutationUrl(url) {
-    return /\/cart\/(add|change|update)/.test(String(url || ""));
+    return /\/cart\/(add|change|update|clear)/.test(String(url || ""));
   }
 
   function request(url, body) {
-    state.quiet = true;
     return nativeFetch(url, {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(body),
-    })
-      .then(function (res) {
-        return res.json().then(function (data) {
-          if (!res.ok) {
-            var message = data.description || data.message || "Cart request failed.";
-            throw new Error(typeof message === "string" ? message : "Cart request failed.");
-          }
-          return data;
-        });
-      })
-      .then(function (data) {
-        state.quiet = false;
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok) {
+          var message = data.description || data.message || "Cart request failed.";
+          throw new Error(typeof message === "string" ? message : "Cart request failed.");
+        }
         return data;
-      }, function (err) {
-        state.quiet = false;
-        throw err;
       });
+    });
   }
 
   function getCart() {
-    state.quiet = true;
-    return nativeFetch(routes().cart, { credentials: "same-origin", headers: { Accept: "application/json" } })
-      .then(function (res) {
+    return nativeFetch(routes.cart, { credentials: "same-origin", headers: { Accept: "application/json" } }).then(
+      function (res) {
         return res.json();
-      })
-      .then(function (data) {
-        state.quiet = false;
-        return data;
-      }, function (err) {
-        state.quiet = false;
-        throw err;
-      });
+      }
+    );
   }
 
   function isFeeItem(item) {
-    if (!item) return false;
-    var variant = Number(item.variant_id || item.id);
-    var product = Number(item.product_id);
-    return variant === feeVariantId || product === feeProductId;
-  }
-
-  function isFeeAddEvent(product) {
-    if (!product) return false;
-    return (
-      Number(product.variant_id) === feeVariantId ||
-      Number(product.id) === feeVariantId ||
-      Number(product.id) === feeProductId ||
-      Number(product.product_id) === feeProductId
-    );
+    return !!item && Number(item.variant_id || item.id) === feeVariantId;
   }
 
   function vendorOf(item) {
@@ -118,9 +92,8 @@
   }
 
   function preferenceOf(cart) {
-    var attrs = (cart && cart.attributes) || {};
-    var value = attrs[ATTR_KEY];
-    if (value === VAL_SPLIT || value === VAL_DELAY) return value;
+    var value = ((cart && cart.attributes) || {})[ATTR_KEY];
+    if (value === VAL_SPLIT || value === VAL_TOGETHER) return value;
     return "";
   }
 
@@ -128,7 +101,7 @@
     var hasWeek = false;
     var hasNonStock = false;
     var feeItem = null;
-    (cart.items || []).forEach(function (item) {
+    ((cart && cart.items) || []).forEach(function (item) {
       if (isFeeItem(item)) {
         feeItem = item;
         return;
@@ -137,21 +110,20 @@
       if (vendor === VENDOR_WEEK) hasWeek = true;
       if (vendor === VENDOR_NONSTOCK) hasNonStock = true;
     });
-    return {
-      mixed: hasWeek && hasNonStock,
-      feeItem: feeItem,
-      preference: preferenceOf(cart),
-    };
+    return { mixed: hasWeek && hasNonStock, feeItem: feeItem, preference: preferenceOf(cart) };
   }
 
+  function choiceOf(preference) {
+    if (preference === VAL_SPLIT) return "split";
+    if (preference === VAL_TOGETHER) return "together";
+    return "";
+  }
+
+  /* Modal */
+
   function setError(message) {
-    if (!message) {
-      errorEl.textContent = "";
-      errorEl.classList.remove("is-visible");
-      return;
-    }
-    errorEl.textContent = message;
-    errorEl.classList.add("is-visible");
+    errorEl.textContent = message || "";
+    errorEl.classList.toggle("is-visible", !!message);
   }
 
   function focusables(container) {
@@ -174,36 +146,28 @@
     });
   }
 
-  function clearThemeLoading() {
-    document.documentElement.classList.remove("js-loading", "ajax-loading", "is-loading");
-    document.body.classList.remove("js-loading", "ajax-loading", "is-loading", "overflow-hidden");
-    var overlays = document.querySelectorAll(
-      ".loading-overlay, .loading-bar, .ajax-loading, [data-loading-overlay], .page-overlay, .loading-spinner"
-    );
-    Array.prototype.forEach.call(overlays, function (el) {
-      el.classList.add("hidden");
-      el.classList.remove("is-active", "is-loading", "active", "open");
-      el.setAttribute("hidden", "");
-      el.style.display = "none";
-    });
+  function isOpen() {
+    return dialog.classList.contains("is-open");
   }
 
   function openDialog(preselect) {
     setError("");
-    var radios = form.querySelectorAll('input[name="fn-split-ship-choice"]');
-    Array.prototype.forEach.call(radios, function (radio) {
-      radio.checked = preselect ? radio.value === preselect : false;
+    Array.prototype.forEach.call(form.querySelectorAll('input[name="fn-split-ship-choice"]'), function (radio) {
+      radio.checked = !!preselect && radio.value === preselect;
     });
     submitBtn.disabled = !preselect;
+    submitBtn.textContent = submitLabel;
     dialog.hidden = false;
     dialog.classList.add("is-open");
     dialog.setAttribute("aria-hidden", "false");
     setInert(true);
-    var first = form.querySelector('input[name="fn-split-ship-choice"]');
-    if (first) first.focus();
+    var target = form.querySelector('input[name="fn-split-ship-choice"]:checked') ||
+      form.querySelector('input[name="fn-split-ship-choice"]');
+    if (target) target.focus();
   }
 
   function closeDialog() {
+    if (!isOpen() && dialog.hidden) return;
     dialog.classList.remove("is-open");
     dialog.hidden = true;
     dialog.setAttribute("aria-hidden", "true");
@@ -216,367 +180,209 @@
     return checked ? checked.value : "";
   }
 
+  /* Cart mutations */
+
   function cartSignature(cart) {
     var items = (cart.items || []).map(function (item) {
-      return [item.variant_id || item.id, item.quantity, item.key];
+      return [item.variant_id || item.id, item.quantity];
     });
-    return JSON.stringify({ items: items, attributes: cart.attributes || {} });
+    return JSON.stringify({ items: items, preference: preferenceOf(cart) });
   }
 
-  function notifyTheme() {
-    document.dispatchEvent(new CustomEvent("cart:refresh", { bubbles: true, detail: { open: false } }));
-    clearThemeLoading();
-    if (/\/cart\/?$/.test(window.location.pathname)) {
-      window.location.reload();
-    }
-  }
-
-  function setAttributes(value) {
+  function setPreference(value) {
     var attrs = {};
-    attrs[ATTR_KEY] = value == null ? "" : value;
-    return request(routes().update, { attributes: attrs }).then(function () {
-      return getCart();
-    });
+    attrs[ATTR_KEY] = value || "";
+    return request(routes.update, { attributes: attrs }).then(getCart);
   }
 
-  function addFee(cart) {
+  function addFee(cart, force) {
     if (cart && classify(cart).feeItem) return Promise.resolve(cart);
-    if (Date.now() - state.lastFeeAddAt < 2000) return getCart();
+    if (!force && Date.now() - state.lastFeeAddAt < 3000) return Promise.resolve(cart);
     state.lastFeeAddAt = Date.now();
-    return request(routes().add, {
-      items: [{ id: feeVariantId, quantity: 1 }],
-    }).then(function () {
-      return getCart();
-    });
+    return request(routes.add, { items: [{ id: feeVariantId, quantity: 1 }] }).then(getCart);
   }
 
-  function removeFee(item) {
-    if (!item) return getCart();
-    return request(routes().change, { id: item.key, quantity: 0 }).then(function () {
-      return getCart();
-    });
-  }
-
-  function setFeeQuantity(item, quantity) {
-    return request(routes().change, { id: item.key, quantity: quantity }).then(function () {
-      return getCart();
-    });
-  }
-
-  function applyChoice(choice) {
-    state.applying = true;
-    submitBtn.disabled = true;
-    closeDialog();
-    var preference = choice === "split" ? VAL_SPLIT : VAL_DELAY;
-    return setAttributes(preference)
-      .then(function (cart) {
-        state.cart = cart;
-        var info = classify(cart);
-        if (choice === "split") {
-          if (!info.feeItem) return addFee(cart);
-          if (info.feeItem.quantity !== 1) return setFeeQuantity(info.feeItem, 1);
-          return cart;
-        }
-        if (info.feeItem) return removeFee(info.feeItem);
-        return cart;
-      })
-      .then(function (cart) {
-        state.cart = cart;
-        paint(cart);
-        notifyTheme();
-      })
-      .catch(function (err) {
-        openDialog(choice);
-        setError(err.message || "Could not save that choice. Try again.");
-        submitBtn.disabled = !selectedChoice();
-      })
-      .then(function () {
-        state.applying = false;
-        clearThemeLoading();
-      });
+  function changeLine(item, quantity) {
+    return request(routes.change, { id: item.key, quantity: quantity }).then(getCart);
   }
 
   function reconcile(cart) {
     var info = classify(cart);
-    if (state.applying) return Promise.resolve(cart);
 
     if (!info.mixed) {
       var tasks = Promise.resolve(cart);
       if (info.preference) {
         tasks = tasks.then(function () {
-          return setAttributes("");
+          return setPreference("");
         });
       }
       if (info.feeItem) {
         tasks = tasks.then(function (next) {
-          return removeFee(classify(next).feeItem || info.feeItem);
+          var fee = classify(next).feeItem;
+          return fee ? changeLine(fee, 0) : next;
         });
       }
       return tasks;
     }
 
     if (info.preference === VAL_SPLIT) {
-      if (!info.feeItem) return addFee(cart);
-      if (info.feeItem.quantity > 1) return setFeeQuantity(info.feeItem, 1);
+      if (!info.feeItem) return addFee(cart, false);
+      if (info.feeItem.quantity !== 1) return changeLine(info.feeItem, 1);
       return Promise.resolve(cart);
     }
 
-    if (info.preference === VAL_DELAY && info.feeItem) {
-      return removeFee(info.feeItem);
-    }
-
+    if (info.feeItem) return changeLine(info.feeItem, 0);
     return Promise.resolve(cart);
   }
 
+  /* Theme refresh: Be Yours 8.1.1 has no cart:refresh listener, so re-render the drawer sections directly. */
+
+  function refreshCartUI() {
+    document.dispatchEvent(new CustomEvent("cart:refresh", { bubbles: true, detail: { open: false } }));
+    if (isCartPage()) {
+      window.location.reload();
+      return Promise.resolve();
+    }
+    return nativeFetch(root + "?sections=" + DRAWER_SECTIONS.join(","), { credentials: "same-origin" })
+      .then(function (res) {
+        return res.json();
+      })
+      .then(function (sections) {
+        var parser = new DOMParser();
+        DRAWER_SECTIONS.forEach(function (id) {
+          var el = document.getElementById(id);
+          if (!el || !sections || typeof sections[id] !== "string") return;
+          var parsed = parser.parseFromString(sections[id], "text/html").querySelector(".shopify-section");
+          if (parsed) el.innerHTML = parsed.innerHTML;
+        });
+      })
+      .catch(function (err) {
+        console.warn("[split-ship] drawer refresh failed", err);
+      })
+      .then(function () {
+        if (state.cart) paint(state.cart);
+      });
+  }
+
+  /* Cart UI */
+
   function hideWallets(hide) {
     document.body.classList.toggle("fn-split-ship-hide-wallets", hide);
+    var ssr = document.getElementById("fn-split-ship-wallets-ssr");
+    if (ssr) ssr.remove();
   }
 
-  function hideNode(el) {
-    if (!el || el.nodeType !== 1) return;
-    el.style.setProperty("display", "none", "important");
-    el.style.setProperty("pointer-events", "none", "important");
-    el.setAttribute("hidden", "");
-    el.setAttribute("tabindex", "-1");
-    el.setAttribute("aria-hidden", "true");
-    if ("disabled" in el) el.disabled = true;
-  }
-
-  function closestCartRow(el) {
-    if (!el || !el.closest) return null;
-    return el.closest(
-      ".mini-cart__item, .cart-item, .cart-drawer-item, .drawer-cart-item, [id^='CartItem-'], [id^='CartDrawer-Item-'], [data-line-item-index], [data-variant-id], tr, li"
-    );
-  }
-
-  function rowMatchesFee(row, feeItems) {
-    if (!row || !feeItems.length) return false;
-    var html = "";
-    try {
-      html = String(row.outerHTML || "");
-    } catch (err) {
-      html = "";
-    }
-    return feeItems.some(function (item) {
-      var variant = String(item.variant_id || item.id);
-      var key = String(item.key || "");
-      var handle = String(item.handle || "");
-      if (row.getAttribute("data-variant-id") === variant) return true;
-      if (row.getAttribute("data-product-id") === String(feeProductId)) return true;
-      if (row.querySelector('[data-variant-id="' + variant + '"]')) return true;
-      if (key && row.querySelector('[name="updates[' + key + ']"]')) return true;
-      if (handle && row.querySelector('a[href*="/products/' + handle + '"]')) return true;
-      if (html.indexOf(variant) !== -1) return true;
-      if (key && html.indexOf(key) !== -1) return true;
-      if (handle && html.indexOf("/products/" + handle) !== -1) return true;
-      return false;
-    });
-  }
-
-  function feeControlsSelector() {
-    return [
-      ".quantity",
-      "quantity-input",
-      ".quantity-selector",
-      ".qty",
-      ".qty-selector",
-      ".qty-input",
-      ".mini-cart__quantity",
-      ".cart-item__quantity",
-      ".cart-quantity",
-      ".product-form__quantity",
-      "[name^='updates']",
-      "button[name='minus']",
-      "button[name='plus']",
-      "[data-action='minus']",
-      "[data-action='plus']",
-      "[data-quantity-minus]",
-      "[data-quantity-plus]",
-      ".quantity__button",
-      "cart-remove-button",
-      ".cart-remove",
-      ".cart-item__remove",
-      ".mini-cart__remove",
-      "[data-remove]",
-      "[data-action='remove']",
-      "a[href*='/cart/change']",
-      "button[aria-label*='emove']",
-      "a[aria-label*='emove']",
+  function lockFeeLine() {
+    var selector = [
+      "[data-fn-split-ship-fee]",
+      'li[data-variant-id="' + feeVariantId + '"]',
     ].join(",");
-  }
-
-  function markAndLockRow(row) {
-    if (!row || row.nodeType !== 1) return;
-    row.classList.add("fn-split-ship-fee-line");
-    row.setAttribute("data-fn-split-ship-fee", "true");
-    Array.prototype.forEach.call(row.querySelectorAll(feeControlsSelector()), hideNode);
-  }
-
-  function lockFeeLine(cart) {
-    var feeItems = (cart.items || []).filter(isFeeItem);
-    Array.prototype.forEach.call(document.querySelectorAll("[data-fn-split-ship-fee]"), function (row) {
-      if (!rowMatchesFee(row, feeItems)) {
-        row.classList.remove("fn-split-ship-fee-line");
-        row.removeAttribute("data-fn-split-ship-fee");
-      }
+    Array.prototype.forEach.call(document.querySelectorAll(selector), function (row) {
+      row.classList.add("fn-split-ship-fee-line");
+      row.setAttribute("data-fn-split-ship-fee", "");
     });
-    if (!feeItems.length) return;
-
-    var candidates = document.querySelectorAll(
-      ".mini-cart__item, .cart-item, .cart-drawer-item, [id^='CartItem-'], [id^='CartDrawer-Item-'], tr.cart-item, [data-line-item-index], li"
-    );
-    Array.prototype.forEach.call(candidates, function (row) {
-      if (rowMatchesFee(row, feeItems)) markAndLockRow(row);
-    });
-
-    feeItems.forEach(function (item) {
-      var variant = String(item.variant_id || item.id);
-      var key = String(item.key || "");
-      var handle = String(item.handle || "");
-      var needles = [];
-      if (handle) needles.push('a[href*="/products/' + handle + '"]');
-      needles.push('a[href*="' + variant + '"]');
-      needles.push('[data-variant-id="' + variant + '"]');
-      needles.push('[data-product-id="' + feeProductId + '"]');
-      if (key) needles.push('[name="updates[' + key + ']"]');
-      document.querySelectorAll(needles.join(",")).forEach(function (node) {
-        markAndLockRow(closestCartRow(node) || node);
-        if (node.matches && (node.matches("a[href*='/cart/change']") || node.matches(feeControlsSelector()))) {
-          hideNode(node);
+    Array.prototype.forEach.call(
+      document.querySelectorAll('input[data-quantity-variant-id="' + feeVariantId + '"]'),
+      function (input) {
+        var row = input.closest("tr, li");
+        if (row) {
+          row.classList.add("fn-split-ship-fee-line");
+          row.setAttribute("data-fn-split-ship-fee", "");
         }
-      });
-    });
-  }
-
-  function feeLineNumber(cart) {
-    var items = cart && cart.items ? cart.items : [];
-    for (var i = 0; i < items.length; i++) {
-      if (isFeeItem(items[i])) return i + 1;
-    }
-    return 0;
-  }
-
-  function isFeeQtyChange(url, init) {
-    if (!/\/cart\/(change|update)/.test(String(url || ""))) return false;
-    var fee = state.cart && classify(state.cart).feeItem;
-    if (!fee) return false;
-    var variant = String(fee.variant_id || fee.id);
-    var key = String(fee.key || "");
-    var line = String(feeLineNumber(state.cart));
-    var body = "";
-    if (init && init.body) {
-      if (typeof init.body === "string") body = init.body;
-      else if (typeof FormData !== "undefined" && init.body instanceof FormData) {
-        var parts = [];
-        init.body.forEach(function (value, name) {
-          parts.push(name + "=" + value);
-        });
-        body = parts.join("&");
       }
-    }
-    var blob = String(url) + " " + body;
-    if (blob.indexOf(variant) !== -1 || (key && blob.indexOf(key) !== -1)) return true;
-    if (line && (blob.indexOf("line=" + line) !== -1 || blob.indexOf('"line":' + line) !== -1)) return true;
-    return false;
+    );
   }
 
-  function statusCopy(preferenceKey) {
-    if (preferenceKey === "split") {
-      return {
-        title: "Shipment: Split — $5 charge",
-        detail: "Ready items ship now. Other items ship when they are available.",
-      };
-    }
-    return {
-      title: "Shipment: Delay until complete",
-      detail: "No extra charge. We hold everything until all items are ready, then send one package.",
-    };
+  function statusSurfaces() {
+    var surfaces = [];
+    var drawerFooter = document.querySelector("#mini-cart .mini-cart__footer");
+    if (drawerFooter) surfaces.push(drawerFooter);
+    var cartFooter = document.querySelector("#main-cart-footer .cart__footer > div");
+    if (cartFooter) surfaces.push(cartFooter);
+    return surfaces;
   }
 
-  function fillStatusNode(node, copy) {
-    var title = node.querySelector("[data-fn-split-ship-status-title]");
-    var detail = node.querySelector("[data-fn-split-ship-status-text]");
-    if (title) title.textContent = copy.title;
-    if (detail) detail.textContent = copy.detail;
-    node.hidden = false;
+  function setText(el, value) {
+    if (el && el.textContent !== value) el.textContent = value;
   }
 
-  function statusMounts() {
-    var mounts = [];
-    var seen = [];
-    function add(node, mode) {
-      if (!node || seen.indexOf(node) !== -1) return;
-      seen.push(node);
-      mounts.push({ node: node, mode: mode || "prepend" });
-    }
-    add(document.getElementById("main-cart-footer"), "prepend");
-    add(document.querySelector("#main-cart-footer .js-contents"), "prepend");
-    add(document.querySelector(".cart-footer"), "prepend");
-    add(document.querySelector(".cart__footer"), "prepend");
-    add(document.querySelector(".mini-cart__footer"), "prepend");
-    add(document.querySelector(".cart-drawer__footer"), "prepend");
-    add(document.querySelector(".drawer__footer"), "prepend");
-    add(document.getElementById("CartDrawer-Checkout"), "before");
-    add(document.querySelector('form#cart [name="checkout"]'), "before");
-    add(document.querySelector('.mini-cart [name="checkout"]'), "before");
-    add(document.querySelector('.mini-cart__footer .button'), "before");
-    add(document.querySelector("#main-cart-items .js-contents"), "append");
-    add(document.querySelector(".mini-cart__items"), "append");
-    add(document.querySelector("form#cart"), "append");
-    add(document.querySelector(".mini-cart__inner"), "prepend");
-    add(document.getElementById("CartDrawer"), "prepend");
-    return mounts;
+  function fillStatus(node, copy) {
+    setText(node.querySelector("[data-fn-split-ship-status-title]"), copy.title);
+    setText(node.querySelector("[data-fn-split-ship-status-text]"), copy.text);
+    if (node.hidden) node.hidden = false;
   }
 
-  function insertStatusLine(visible, preferenceKey) {
-    var existing = document.querySelectorAll("[data-fn-split-ship-status]");
+  function updateStatus(info) {
+    var visible = info.mixed && !!info.preference;
+    var nodes = document.querySelectorAll("[data-fn-split-ship-status]");
     if (!visible) {
-      Array.prototype.forEach.call(existing, function (el) {
-        el.remove();
+      Array.prototype.forEach.call(nodes, function (node) {
+        node.hidden = true;
       });
       return;
     }
-    var copy = statusCopy(preferenceKey);
-    if (existing.length) {
-      Array.prototype.forEach.call(existing, function (el) {
-        fillStatusNode(el, copy);
-      });
-      return;
-    }
-    if (!statusTemplate || !statusTemplate.firstElementChild) return;
-    var used = [];
-    statusMounts().forEach(function (mount) {
-      var host = mount.node;
-      if (!host || used.indexOf(host) !== -1) return;
-      if (host.closest && host.closest("[data-fn-split-ship-status]")) return;
-      if (host.querySelector && host.querySelector("[data-fn-split-ship-status]")) return;
-      var node = statusTemplate.firstElementChild.cloneNode(true);
-      fillStatusNode(node, copy);
-      if (mount.mode === "before" && host.parentNode) {
-        host.parentNode.insertBefore(node, host);
-      } else if (mount.mode === "append") {
-        host.appendChild(node);
-      } else {
-        host.insertBefore(node, host.firstChild);
-      }
-      used.push(host);
+    var copy = COPY[choiceOf(info.preference)];
+    Array.prototype.forEach.call(nodes, function (node) {
+      fillStatus(node, copy);
+    });
+    if (!statusTemplate || !statusTemplate.content || !statusTemplate.content.firstElementChild) return;
+    statusSurfaces().forEach(function (surface) {
+      if (surface.querySelector("[data-fn-split-ship-status]")) return;
+      var node = statusTemplate.content.firstElementChild.cloneNode(true);
+      fillStatus(node, copy);
+      surface.insertBefore(node, surface.firstChild);
     });
   }
 
   function paint(cart) {
     var info = classify(cart);
-    lockFeeLine(cart);
+    lockFeeLine();
     hideWallets(info.mixed && !info.preference);
-    insertStatusLine(info.mixed && !!info.preference, info.preference === VAL_SPLIT ? "split" : "delay");
+    updateStatus(info);
     if (info.mixed && !info.preference) {
-      if (!dialog.classList.contains("is-open")) openDialog("");
-    } else if (!info.mixed) {
+      if (!isOpen() && !state.applying) openDialog("");
+    } else if (!info.mixed && !state.applying) {
       closeDialog();
     }
   }
 
+  function applyChoice(choice) {
+    state.applying = true;
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Saving\u2026";
+    setError("");
+    var preference = choice === "split" ? VAL_SPLIT : VAL_TOGETHER;
+    return setPreference(preference)
+      .then(function (cart) {
+        var info = classify(cart);
+        if (choice === "split") {
+          if (!info.feeItem) return addFee(cart, true);
+          if (info.feeItem.quantity !== 1) return changeLine(info.feeItem, 1);
+          return cart;
+        }
+        return info.feeItem ? changeLine(info.feeItem, 0) : cart;
+      })
+      .then(function (cart) {
+        state.cart = cart;
+        state.applying = false;
+        closeDialog();
+        paint(cart);
+        return refreshCartUI();
+      })
+      .catch(function (err) {
+        state.applying = false;
+        submitBtn.textContent = submitLabel;
+        submitBtn.disabled = !selectedChoice();
+        setError((err && err.message) || "Could not save that choice. Try again.");
+      });
+  }
+
   function sync() {
-    if (state.syncing || state.applying) return;
+    if (state.applying) return;
+    if (state.syncing) {
+      scheduleSync();
+      return;
+    }
     state.syncing = true;
     getCart()
       .then(function (cart) {
@@ -588,39 +394,41 @@
       .then(function (result) {
         state.cart = result.cart;
         paint(result.cart);
-        if (result.changed) notifyTheme();
+        if (result.changed) return refreshCartUI();
       })
       .catch(function (err) {
         console.warn("[split-ship]", err);
       })
       .then(function () {
         state.syncing = false;
-        clearThemeLoading();
       });
   }
 
-  function scheduleSync() {
+  function scheduleSync(delay) {
     clearTimeout(state.syncTimer);
-    state.syncTimer = setTimeout(sync, 250);
+    state.syncTimer = setTimeout(sync, delay || 250);
   }
 
+  /* Events */
+
   form.addEventListener("change", function () {
-    submitBtn.disabled = !selectedChoice();
+    submitBtn.disabled = !selectedChoice() || state.applying;
     setError("");
   });
 
   form.addEventListener("submit", function (event) {
     event.preventDefault();
+    if (state.applying) return;
     var choice = selectedChoice();
     if (!choice) {
-      setError("Choose how this order should ship.");
+      setError("Choose a shipping preference to continue.");
       return;
     }
     applyChoice(choice);
   });
 
   dialog.addEventListener("keydown", function (event) {
-    if (!dialog.classList.contains("is-open")) return;
+    if (!isOpen()) return;
     if (event.key === "Escape") {
       event.preventDefault();
       return;
@@ -639,66 +447,34 @@
     }
   });
 
-  document.addEventListener(
-    "change",
-    function (event) {
-      var input = event.target;
-      if (!input || !input.matches || !input.matches("[name^='updates'], .quantity__input, .qty-input, input[type='number']")) {
-        return;
-      }
-      var row = closestCartRow(input);
-      var feeItems = ((state.cart && state.cart.items) || []).filter(isFeeItem);
-      if (row && (row.classList.contains("fn-split-ship-fee-line") || rowMatchesFee(row, feeItems))) {
-        event.preventDefault();
-        event.stopPropagation();
-        input.value = "1";
-        scheduleSync();
-      }
-    },
-    true
-  );
+  function needsChoice() {
+    var info = classify(state.cart);
+    return info.mixed && !info.preference;
+  }
 
   document.addEventListener(
     "click",
     function (event) {
-      var changeBtn = event.target.closest && event.target.closest("[data-fn-split-ship-change]");
+      var target = event.target;
+      if (!target || !target.closest) return;
+
+      var changeBtn = target.closest("[data-fn-split-ship-change]");
       if (changeBtn) {
         event.preventDefault();
         event.stopPropagation();
-        var current = classify(state.cart || { items: [], attributes: {} });
-        var preselect =
-          current.preference === VAL_SPLIT ? "split" : current.preference === VAL_DELAY ? "delay" : "";
-        openDialog(preselect);
+        openDialog(choiceOf(classify(state.cart).preference));
         return;
       }
 
-      var control = event.target.closest && event.target.closest(feeControlsSelector());
-      if (control) {
-        var row = closestCartRow(control) || event.target.closest(".fn-split-ship-fee-line");
-        var href = (control.getAttribute && control.getAttribute("href")) || control.href || "";
-        var feeItems = ((state.cart && state.cart.items) || []).filter(isFeeItem);
-        var hrefHitsFee = feeItems.some(function (item) {
-          var variant = String(item.variant_id || item.id);
-          return href.indexOf(variant) !== -1 || (item.handle && href.indexOf("/products/" + item.handle) !== -1);
-        });
-        if ((row && (row.classList.contains("fn-split-ship-fee-line") || rowMatchesFee(row, feeItems))) || hrefHitsFee) {
-          event.preventDefault();
-          event.stopPropagation();
-          return;
-        }
+      if (target.closest("[data-fn-split-ship-fee] quantity-input, [data-fn-split-ship-fee] cart-remove-button")) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
       }
 
-      var addLike = event.target.closest(
-        'form[action*="/cart/add"] button, form[action*="/cart/add"] input[type="submit"], [name="add"], [data-add-to-cart], .product-form__submit, .quick-add__submit'
-      );
-      if (addLike && !event.target.closest("#fn-split-ship-form")) {
-        setTimeout(scheduleSync, 400);
-      }
-
-      var info = classify(state.cart || { items: [], attributes: {} });
-      if (!(info.mixed && !info.preference)) return;
-      var checkoutLike = event.target.closest(
-        'button[name="checkout"], input[name="checkout"], a[href*="/checkout"], #CartDrawer-Checkout, .cart__checkout-button'
+      if (!needsChoice()) return;
+      var checkoutLike = target.closest(
+        'button[name="checkout"], input[name="checkout"], a[href*="/checkout"], .cart__checkout-button'
       );
       if (!checkoutLike) return;
       event.preventDefault();
@@ -712,13 +488,12 @@
     "submit",
     function (event) {
       var formEl = event.target;
-      if (formEl && formEl.id === "fn-split-ship-form") return;
-      if (formEl && formEl.action && /\/cart\/add/.test(formEl.action)) {
-        setTimeout(scheduleSync, 400);
-      }
-      var info = classify(state.cart || { items: [], attributes: {} });
-      if (!(info.mixed && !info.preference)) return;
-      if (!formEl || !formEl.querySelector || !formEl.querySelector('[name="checkout"]')) return;
+      if (!formEl || formEl === form || !needsChoice()) return;
+      var submitter = event.submitter;
+      var isCheckout =
+        (submitter && submitter.name === "checkout") ||
+        (formEl.querySelector && formEl.querySelector('[name="checkout"]') && !submitter);
+      if (!isCheckout) return;
       event.preventDefault();
       event.stopPropagation();
       openDialog("");
@@ -726,75 +501,57 @@
     true
   );
 
-  document.addEventListener("ajaxProduct:added", function (event) {
-    if (isFeeAddEvent(event.detail && event.detail.product)) {
-      clearThemeLoading();
-      return;
-    }
+  document.addEventListener("ajaxProduct:added", function () {
     scheduleSync();
   });
-
-  document.addEventListener("cart:updated", function (event) {
-    if (event.detail && event.detail.source === "fn-split-ship") return;
+  document.addEventListener("cart:updated", function () {
     scheduleSync();
   });
-
-  document.addEventListener("page:loaded", scheduleSync);
+  document.addEventListener("page:loaded", function () {
+    scheduleSync();
+  });
 
   window.fetch = function (input, init) {
     var url = typeof input === "string" ? input : (input && input.url) || "";
-    if (!state.quiet && isFeeQtyChange(url, init)) {
-      scheduleSync();
-      clearThemeLoading();
-      return Promise.resolve(
-        new Response(JSON.stringify({ status: 200, message: "ok", description: "Split shipping quantity is locked." }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        })
+    var result = nativeFetch(input, init);
+    if (isCartMutationUrl(url)) {
+      result.then(
+        function () {
+          if (!state.applying) scheduleSync(400);
+        },
+        function () {}
       );
     }
-    return nativeFetch(input, init).then(function (res) {
-      if (!state.quiet && !state.applying && isCartMutationUrl(url)) {
-        scheduleSync();
-      }
-      return res;
-    });
+    return result;
   };
 
-  (function patchXhr() {
+  (function watchXhr() {
     var open = XMLHttpRequest.prototype.open;
-    var send = XMLHttpRequest.prototype.send;
     XMLHttpRequest.prototype.open = function (method, url) {
-      this._fnSplitShipUrl = url;
-      return open.apply(this, arguments);
-    };
-    XMLHttpRequest.prototype.send = function (body) {
-      var url = this._fnSplitShipUrl || "";
-      if (!state.quiet && isFeeQtyChange(url, { body: body })) {
-        scheduleSync();
-        clearThemeLoading();
-        this.abort();
-        return;
+      if (isCartMutationUrl(url)) {
+        this.addEventListener("loadend", function () {
+          if (!state.applying) scheduleSync(400);
+        });
       }
-      return send.apply(this, arguments);
+      return open.apply(this, arguments);
     };
   })();
 
   var observerTimer = null;
-  var observer = new MutationObserver(function () {
+  new MutationObserver(function () {
     if (!state.cart) return;
     clearTimeout(observerTimer);
     observerTimer = setTimeout(function () {
-      var info = classify(state.cart);
-      lockFeeLine(state.cart);
-      insertStatusLine(info.mixed && !!info.preference, info.preference === VAL_SPLIT ? "split" : "delay");
+      lockFeeLine();
+      updateStatus(classify(state.cart));
     }, 80);
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
+  }).observe(document.body, { childList: true, subtree: true });
 
-  if (document.readyState === "complete" || document.readyState === "interactive") {
-    scheduleSync();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      scheduleSync(0);
+    });
   } else {
-    document.addEventListener("DOMContentLoaded", scheduleSync);
+    scheduleSync(0);
   }
 })();
