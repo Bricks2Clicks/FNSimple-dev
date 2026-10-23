@@ -427,6 +427,11 @@
     applyChoice(choice);
   });
 
+  /* The theme closes open drawers on any body click outside them. */
+  dialog.addEventListener("click", function (event) {
+    event.stopPropagation();
+  });
+
   dialog.addEventListener("keydown", function (event) {
     if (!isOpen()) return;
     if (event.key === "Escape") {
