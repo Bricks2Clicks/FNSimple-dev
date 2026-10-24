@@ -285,10 +285,11 @@
                 </div>
               {% endif %}
               <div class="product-description">
+                {%- if settings.cart_drawer_show_vendor and item.product.vendor != blank -%}
+                  <span class="visually-hidden">{{ 'accessibility.vendor' | t }}</span>
+                  <div class="caption-with-letter-spacing light">{{ item.product.vendor }}</div>
+                {%- endif -%}
                 <div class="product-content">
-                  {%- if settings.cart_drawer_show_vendor and item.product.vendor != blank -%}
-                    <p class="caption-with-letter-spacing light">{{ item.product.vendor }}</p>
-                  {%- endif -%}
                   <a href="{{ item.url }}" class="link product-title">{{ item.product.title }}</a>
                   {%- if item.original_price != item.final_price -%}
                     <dl class="cart-item__discounted-prices">
