@@ -579,6 +579,12 @@
         "label": "t:settings_schema.cart-drawer.settings.disable_view_cart.label"
       },
       {
+        "type": "checkbox",
+        "id": "cart_drawer_show_vendor",
+        "default": false,
+        "label": "Show vendor on cart items"
+      },
+      {
         "type": "header",
         "content": "t:settings_schema.cart-drawer.settings.header__1.content",
         "info": "t:settings_schema.cart-drawer.settings.header__1.info"
