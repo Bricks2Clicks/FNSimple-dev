@@ -238,7 +238,6 @@
                   <td class="cart-item__quantity{% if has_qty_rules or has_vol_pricing %} cart-item__quantity--info{% endif %}">
                     {%- comment -%} FNS split-ship: fee line is fixed at qty 1 with no remove; the hidden input keeps updates[] aligned {%- endcomment -%}
                     {%- if item.variant_id == fn_split_fee_id -%}
-                      <span class="fn-split-ship-fee-qty">1</span>
                       <input type="hidden" name="updates[]" value="1">
                     {%- elsif gift_wrap_id == nil or item.id != gift_wrap_id -%}
                       <quantity-popover>
