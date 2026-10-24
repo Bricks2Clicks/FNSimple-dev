@@ -83,7 +83,7 @@
                   </td>
 
                   <td class="cart-item__details">
-                    {%- if section.settings.show_vendor -%}
+                    {%- if section.settings.show_vendor and item.variant_id != fn_split_fee_id -%}
                       <p class="caption-with-letter-spacing light">{{ item.product.vendor }}</p>
                     {%- endif -%}
 

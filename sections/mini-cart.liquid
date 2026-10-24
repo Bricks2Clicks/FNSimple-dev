@@ -285,7 +285,7 @@
                 </div>
               {% endif %}
               <div class="product-description">
-                {%- if settings.cart_drawer_show_vendor and item.product.vendor != blank -%}
+                {%- if settings.cart_drawer_show_vendor and item.product.vendor != blank and item.variant_id != fn_split_fee_id -%}
                   <span class="visually-hidden">{{ 'accessibility.vendor' | t }}</span>
                   <div class="caption-with-letter-spacing light">{{ item.product.vendor }}</div>
                 {%- endif -%}
