@@ -61,7 +61,7 @@
     "show_cart_note": true,
     "show_shipping_calculator": true,
     "disable_view_cart": true,
-    "cart_drawer_show_vendor": false,
+    "cart_drawer_show_vendor": true,
     "show_free_shipping_message": false,
     "free_shipping_minimum_amount": "",
     "cart_recommendations_enabled": true,
