@@ -32,9 +32,10 @@
 
 <style>
   :root {
-    --fn-split-navy: #1E2262;
+    --fn-split-navy: #14243D;
+    --fn-split-navy-tint: #E8EBF0;
     --fn-split-text: #212326;
-    --fn-split-font: var(--font-body-family, Poppins, sans-serif);
+    --fn-split-font: "Helvetica Neue", Helvetica, Arial, sans-serif;
   }
   .fn-split-ship-dialog {
     position: fixed;
@@ -80,11 +81,19 @@
     }
   }
   .fn-split-ship-dialog__title {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
     margin: 0 0 8px;
     font-family: var(--fn-split-font);
     font-size: 21px;
     line-height: 1.3;
     color: var(--fn-split-text);
+  }
+  .fn-split-ship-dialog__alert {
+    flex: none;
+    margin-top: 1px;
+    color: #D8292F;
   }
   .fn-split-ship-dialog__lead,
   .fn-split-ship-dialog__prompt {
@@ -139,6 +148,63 @@
     line-height: 1.4;
     color: var(--fn-split-text);
   }
+  .fn-split-ship-dialog__flow {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .fn-split-ship-dialog__box {
+    flex: 1 1 0;
+    min-width: 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 10px 8px;
+    border: 1px solid var(--fn-split-navy);
+    border-radius: 6px;
+    background: var(--fn-split-navy-tint);
+    text-align: center;
+  }
+  .fn-split-ship-dialog__box-title {
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.3;
+  }
+  .fn-split-ship-dialog__box-text {
+    font-size: 13px;
+    line-height: 1.3;
+  }
+  .fn-split-ship-dialog__plus {
+    flex: none;
+    align-self: center;
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 1;
+    color: var(--fn-split-navy);
+  }
+  .fn-split-ship-dialog__note {
+    grid-column: 2;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 4px;
+    padding: 10px 12px;
+    border: 1px solid var(--fn-split-navy);
+    border-radius: 6px;
+    background: var(--fn-split-navy-tint);
+    font-size: 14px;
+    line-height: 1.4;
+    text-align: left;
+  }
+  .fn-split-ship-dialog__clock {
+    flex: none;
+    color: var(--fn-split-navy);
+  }
   .fn-split-ship-dialog__error {
     display: none;
     margin: 0 0 16px;
@@ -164,7 +230,10 @@
     cursor: pointer;
   }
   .fn-split-ship-dialog__submit:disabled {
-    opacity: 0.45;
+    opacity: 1;
+    border-color: transparent;
+    background: rgba(20, 36, 61, 0.6);
+    color: #fff;
     cursor: not-allowed;
   }
   .fn-split-ship-status {
@@ -267,26 +336,51 @@
 >
   <div class="fn-split-ship-dialog__backdrop"></div>
   <div class="fn-split-ship-dialog__panel" role="document">
-    <h2 id="fn-split-ship-title" class="fn-split-ship-dialog__title">Your cart contains items with different shipping timelines.</h2>
+    <h2 id="fn-split-ship-title" class="fn-split-ship-dialog__title">
+      <svg class="fn-split-ship-dialog__alert" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false">
+        <path d="M12 3 2 20.5h20L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M12 9.5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="17.4" r="1.15" fill="currentColor"/>
+      </svg>
+      <span>You have added items to your cart that have different delivery ship times.</span>
+    </h2>
     <p id="fn-split-ship-lead" class="fn-split-ship-dialog__lead">
-      Some items ship within one week. Others are made as quickly as possible, without a guaranteed ship date.
+      Some products are one-week products and some we deliver based on the supplier and decoration. We will keep you updated on your order status whichever option you choose.
     </p>
     <form id="fn-split-ship-form">
-      <p id="fn-split-ship-prompt" class="fn-split-ship-dialog__prompt">Choose your shipping preference:</p>
+      <p id="fn-split-ship-prompt" class="fn-split-ship-dialog__prompt">How do you want your order shipped?</p>
       <div class="fn-split-ship-dialog__options" role="radiogroup" aria-labelledby="fn-split-ship-prompt">
         <label class="fn-split-ship-dialog__option">
           <input type="radio" name="fn-split-ship-choice" value="split">
-          <span class="fn-split-ship-dialog__option-title">Split Shipping (+$5)</span>
-          <span class="fn-split-ship-dialog__option-help">Ship one-week items separately, without waiting for the other items.</span>
+          <span class="fn-split-ship-dialog__option-title">Get my 1-week items first</span>
+          <span class="fn-split-ship-dialog__option-help">Two shipments - $5 extra</span>
+          <span class="fn-split-ship-dialog__flow">
+            <span class="fn-split-ship-dialog__box">
+              <span class="fn-split-ship-dialog__box-title">1-week items</span>
+              <span class="fn-split-ship-dialog__box-text">Ship first</span>
+            </span>
+            <span class="fn-split-ship-dialog__plus" aria-hidden="true">+</span>
+            <span class="fn-split-ship-dialog__box">
+              <span class="fn-split-ship-dialog__box-title">Other items</span>
+              <span class="fn-split-ship-dialog__box-text">Ship when ready</span>
+            </span>
+          </span>
         </label>
         <label class="fn-split-ship-dialog__option">
           <input type="radio" name="fn-split-ship-choice" value="together">
-          <span class="fn-split-ship-dialog__option-title">Ship Together (no extra charges)</span>
-          <span class="fn-split-ship-dialog__option-help">Ship everything together when all items are ready.</span>
+          <span class="fn-split-ship-dialog__option-title">Wait and ship everything together</span>
+          <span class="fn-split-ship-dialog__option-help">One shipment - no extra charge</span>
+          <span class="fn-split-ship-dialog__note">
+            <svg class="fn-split-ship-dialog__clock" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+              <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
+              <path d="M12 7v5l3.2 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Nothing ships in 1 week. All items wait until everything is ready.</span>
+          </span>
         </label>
       </div>
       <p id="fn-split-ship-error" class="fn-split-ship-dialog__error" role="alert"></p>
-      <button type="submit" class="fn-split-ship-dialog__submit" id="fn-split-ship-submit" disabled>Continue</button>
+      <button type="submit" class="fn-split-ship-dialog__submit" id="fn-split-ship-submit" disabled>Make a selection</button>
     </form>
   </div>
 </div>
@@ -315,13 +409,18 @@
     },
     "copy": {
       "split": {
-        "title": "Shipping: Split Shipping (+$5)",
-        "text": "Ship one-week items separately, without waiting for the other items."
+        "title": "Shipping: Get my 1-week items first",
+        "text": "Two shipments - $5 extra"
       },
       "together": {
-        "title": "Shipping: Ship Together (no extra charges)",
-        "text": "Ship everything together when all items are ready."
+        "title": "Shipping: Wait and ship everything together",
+        "text": "One shipment - no extra charge"
       }
+    },
+    "buttons": {
+      "empty": "Make a selection",
+      "split": "Continue with 2 shipments (+$5)",
+      "together": "Ship everything together (no extra charge)"
     }
   }
 </script>

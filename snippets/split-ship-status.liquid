@@ -20,11 +20,11 @@
   {%- if pref == 'Split shipping' or pref == 'Ship together' -%}
     <div class="fn-split-ship-status" data-fn-split-ship-status>
       {%- if pref == 'Split shipping' -%}
-        <p class="fn-split-ship-status__title" data-fn-split-ship-status-title>Shipping: Split Shipping (+$5)</p>
-        <p class="fn-split-ship-status__text" data-fn-split-ship-status-text>Ship one-week items separately, without waiting for the other items.</p>
+        <p class="fn-split-ship-status__title" data-fn-split-ship-status-title>Shipping: Get my 1-week items first</p>
+        <p class="fn-split-ship-status__text" data-fn-split-ship-status-text>Two shipments - $5 extra</p>
       {%- else -%}
-        <p class="fn-split-ship-status__title" data-fn-split-ship-status-title>Shipping: Ship Together (Free)</p>
-        <p class="fn-split-ship-status__text" data-fn-split-ship-status-text>Ship everything together when all items are ready.</p>
+        <p class="fn-split-ship-status__title" data-fn-split-ship-status-title>Shipping: Wait and ship everything together</p>
+        <p class="fn-split-ship-status__text" data-fn-split-ship-status-text>One shipment - no extra charge</p>
       {%- endif -%}
       <button type="button" class="fn-split-ship-status__change" data-fn-split-ship-change>
         Change shipping preference

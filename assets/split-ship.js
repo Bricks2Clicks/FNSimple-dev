@@ -33,7 +33,12 @@
   var errorEl = document.getElementById("fn-split-ship-error");
   var statusTemplate = document.getElementById("fn-split-ship-status-template");
   if (!dialog || !form || !submitBtn || !errorEl) return;
-  var submitLabel = submitBtn.textContent;
+  var BUTTONS = config.buttons || {};
+  var emptyLabel = BUTTONS.empty || submitBtn.textContent;
+
+  function buttonLabel(choice) {
+    return (choice && BUTTONS[choice]) || emptyLabel;
+  }
 
   var state = {
     cart: null,
@@ -155,8 +160,8 @@
     Array.prototype.forEach.call(form.querySelectorAll('input[name="fn-split-ship-choice"]'), function (radio) {
       radio.checked = !!preselect && radio.value === preselect;
     });
-    submitBtn.disabled = !preselect;
-    submitBtn.textContent = submitLabel;
+    submitBtn.disabled = !selectedChoice();
+    submitBtn.textContent = buttonLabel(selectedChoice());
     dialog.hidden = false;
     dialog.classList.add("is-open");
     dialog.setAttribute("aria-hidden", "false");
@@ -371,7 +376,7 @@
       })
       .catch(function (err) {
         state.applying = false;
-        submitBtn.textContent = submitLabel;
+        submitBtn.textContent = buttonLabel(selectedChoice());
         submitBtn.disabled = !selectedChoice();
         setError((err && err.message) || "Could not save that choice. Try again.");
       });
@@ -412,7 +417,9 @@
   /* Events */
 
   form.addEventListener("change", function () {
-    submitBtn.disabled = !selectedChoice() || state.applying;
+    if (state.applying) return;
+    submitBtn.disabled = !selectedChoice();
+    submitBtn.textContent = buttonLabel(selectedChoice());
     setError("");
   });
 
